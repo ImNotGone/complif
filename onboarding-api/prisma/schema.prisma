@@ -1,0 +1,62 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BusinessStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum Role {
+  ADMIN
+  VIEWER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+}
+
+model Business {
+  id            String         @id @default(uuid())
+  name          String
+  taxId         String         
+  country       String
+  industry      String
+  status        BusinessStatus @default(PENDING)
+  riskScore     Int            @default(0)
+  documents     Document[]
+  statusHistory StatusHistory[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  type       String   // Ej: 'tax_certificate', 'insurance'
+  url        String
+  s3Key      String
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model StatusHistory {
+  id         String   @id @default(uuid())
+  status     BusinessStatus
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now())
+}

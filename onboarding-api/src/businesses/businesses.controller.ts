@@ -59,9 +59,11 @@ export class BusinessesController {
     @Query('country') country?: string,
     @Query('search') search?: string,
   ) {
+    let auxPage = page ? parseInt(page) : 1;
+    let auxLimit = limit ? parseInt(limit) : 10;
     return this.businessesService.findAll({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 10,
+      page: auxPage < 0 ? 1 : auxPage,
+      limit: auxLimit < 0 ? 10 : auxLimit,
       status,
       country,
       search,
@@ -92,7 +94,7 @@ export class BusinessesController {
     const userId = req.user.sub;
     return this.businessesService.update(id, updateBusinessDto, userId);
   }
-  
+
   @AdminOnly()
   @Patch(':id/status')
   @ApiOperation({ summary: 'Change business status (ADMIN only)' })

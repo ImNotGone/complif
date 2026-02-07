@@ -1,9 +1,9 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
-import { RolesGuard } from './roles.guard';
+import { RolesGuard } from '../guards/roles.guard';
 import { Role } from '@prisma/client';
 import { Roles } from './roles.decorator';
-import { JwtAuthGuard } from './jwt.guard';
+import { JwtAuthGuard } from '../guards/jwt.guard';
 
 export function AdminOnly() {
     return applyDecorators(

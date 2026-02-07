@@ -9,8 +9,8 @@ import {
   ApiUnauthorizedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { Public } from './public.decorator';
-import { AuthenticatedOnly } from './auth.decorator';
+import { Public } from './decorators/public.decorator';
+import { AuthenticatedOnly } from './decorators/auth.decorator';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto';
 
 @ApiTags('Auth')

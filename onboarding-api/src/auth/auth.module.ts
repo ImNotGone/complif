@@ -6,7 +6,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaModule } from 'src/prisma.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtAuthGuard } from './jwt.guard';
+import { JwtAuthGuard } from './guards/jwt.guard';
 
 @Module({
   imports: [

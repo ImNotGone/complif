@@ -67,7 +67,7 @@ export class BusinessesService {
         riskScore: riskCalculation.totalScore,
         status: initialStatus,
         createdBy: {
-          connect: { id: createdById }, // Connect to existing user
+          connect: { id: createdById },
         },
         statusHistory: {
           create: {
@@ -89,15 +89,12 @@ export class BusinessesService {
         },
       },
       include: {
-        statusHistory: true,
-        riskCalculations: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+        createdBy: {
+          select: { email: true, role: true },
         },
       },
     });
 
-    // 6. Log notification (webhook mock)
     this.logger.log(
       `Business created successfully: ${newBusiness.name} | Risk: ${riskCalculation.totalScore} | Status: ${initialStatus}`,
     );
@@ -152,7 +149,11 @@ export class BusinessesService {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: {
-            select: { documents: true },
+            select: { 
+              documents: { where: { deletedAt: null } },
+              statusHistory: true,
+              riskCalculations: true,
+            },
           },
         },
       }),
@@ -178,24 +179,18 @@ export class BusinessesService {
     const business = await this.prisma.business.findUnique({
       where: { id },
       include: {
-        documents: {
-          where: { deletedAt: null }, // Only active documents
-          orderBy: { createdAt: 'desc' },
-        },
-        statusHistory: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            changedBy: {
-              select: { email: true, role: true },
-            },
-          },
-        },
-        riskCalculations: {
-          orderBy: { createdAt: 'desc' },
-          take: 5, // Last 5 calculations
-        },
         createdBy: {
           select: { email: true, role: true },
+        },
+        updatedBy: {
+          select: { email: true, role: true },
+        },
+        _count: {
+          select: {
+            documents: { where: { deletedAt: null } },
+            statusHistory: true,
+            riskCalculations: true,
+          },
         },
       },
     });
@@ -242,7 +237,12 @@ export class BusinessesService {
         },
       },
       include: {
-        documents: { where: { deletedAt: null } },
+        createdBy: {
+          select: { email: true, role: true },
+        },
+        updatedBy: {
+          select: { email: true, role: true },
+        },
       },
     });
 
@@ -288,7 +288,7 @@ export class BusinessesService {
     // Create status history entry
     await this.prisma.statusHistory.create({
       data: {
-        business: {connect: {id: id}},
+        business: { connect: { id: id } },
         status: dto.status,
         changedBy: {
           connect: { id: changedById },
@@ -330,6 +330,28 @@ export class BusinessesService {
     });
 
     this.logger.debug(`Retrieved ${history.length} status history entries`);
+    return history;
+  }
+
+  async getRiskHistory(businessId: string) {
+    this.logger.debug(`Fetching risk history for business: ${businessId}`);
+
+    const businessExists = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+
+    if (!businessExists) {
+      this.logger.warn(`Business not found for risk history: ${businessId}`);
+      throw new NotFoundException('Business not found');
+    }
+
+    const history = await this.prisma.riskCalculation.findMany({
+      where: { businessId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    this.logger.debug(`Retrieved ${history.length} risk calculation entries`);
     return history;
   }
 

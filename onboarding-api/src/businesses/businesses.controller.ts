@@ -27,6 +27,9 @@ import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { StatusHistoryResponseDto } from './dto/status-history-response.dto';
 import { BusinessStatus } from '@prisma/client';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
+import { BusinessResponseDto } from './dto/business-response.dto';
+import { PaginatedBusinessesResponseDto } from './dto/paginated-business-response.dto';
+import { RecalculateRiskResponseDto } from './dto/recalculate-risk-response.dto';
 
 @ApiTags('Businesses')
 @Controller('businesses')
@@ -36,7 +39,10 @@ export class BusinessesController {
   @AuthenticatedOnly()
   @Post()
   @ApiOperation({ summary: 'Create a business and calculate initial risk score' })
-  @ApiCreatedResponse({ description: 'Business created successfully' })
+  @ApiCreatedResponse({
+    description: 'Business created successfully',
+    type: BusinessResponseDto,
+  })
   @ApiBadRequestResponse({ description: 'Invalid input or tax ID validation failed' })
   create(@Body() createBusinessDto: CreateBusinessDto, @Req() req: any) {
     const userId = req.user.userId;
@@ -46,21 +52,27 @@ export class BusinessesController {
   @AuthenticatedOnly()
   @Get()
   @ApiOperation({ summary: 'List businesses with optional filters and pagination' })
-  @ApiOkResponse({ description: 'List of businesses' })
+  @ApiOkResponse({
+    description: 'List of businesses',
+    type: PaginatedBusinessesResponseDto,
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
   @ApiQuery({ name: 'status', required: false, enum: BusinessStatus })
   @ApiQuery({ name: 'country', required: false, example: 'AR' })
   @ApiQuery({ name: 'search', required: false, example: 'Acme Corp' })
-  findAll( @Query() query: FindBusinessesQueryDto) {
+  findAll(@Query() query: FindBusinessesQueryDto) {
     return this.businessesService.findAll(query);
   }
 
   @AuthenticatedOnly()
   @Get(':id')
-  @ApiOperation({ summary: 'Get business details with documents and status history' })
+  @ApiOperation({ summary: 'Get basic business details' })
   @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Business found' })
+  @ApiOkResponse({
+    description: 'Business found',
+    type: BusinessResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Business not found' })
   findOne(@Param('id') id: string) {
     return this.businessesService.findOne(id);
@@ -70,7 +82,10 @@ export class BusinessesController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update business info (ADMIN only)' })
   @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Business updated successfully' })
+  @ApiOkResponse({
+    description: 'Business updated successfully',
+    type: BusinessResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Business not found' })
   update(
     @Param('id') id: string,
@@ -85,7 +100,10 @@ export class BusinessesController {
   @Patch(':id/status')
   @ApiOperation({ summary: 'Change business status (ADMIN only)' })
   @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Status updated successfully' })
+  @ApiOkResponse({
+    description: 'Status updated successfully',
+    type: BusinessResponseDto,
+  })
   @ApiBadRequestResponse({ description: 'Invalid status transition' })
   @ApiNotFoundResponse({ description: 'Business not found' })
   changeStatus(
@@ -111,11 +129,28 @@ export class BusinessesController {
     return this.businessesService.getStatusHistory(id);
   }
 
+  @AuthenticatedOnly()
+  @Get(':id/risk-history')
+  @ApiOperation({ summary: 'Get risk calculation history for a business' })
+  @ApiParam({ name: 'id', description: 'Business UUID' })
+  @ApiOkResponse({
+    description: 'Risk history retrieved successfully',
+    type: RecalculateRiskResponseDto,
+    isArray: true
+  })
+  @ApiNotFoundResponse({ description: 'Business not found' })
+  getRiskHistory(@Param('id') id: string) {
+    return this.businessesService.getRiskHistory(id);
+  }
+
   @AdminOnly()
   @Post(':id/risk/calculate')
   @ApiOperation({ summary: 'Manually recalculate risk score (ADMIN only)' })
   @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Risk score recalculated' })
+  @ApiOkResponse({
+    description: 'Risk score recalculated',
+    type: RecalculateRiskResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Business not found' })
   recalculateRisk(@Param('id') id: string) {
     return this.businessesService.recalculateRisk(id);

@@ -1,13 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { BusinessStatus } from '@prisma/client';
-
-class UserDto {
-  @ApiProperty({ example: 'admin@portal.com' })
-  email: string;
-
-  @ApiProperty({ example: 'ADMIN' })
-  role: string;
-}
+import { UserDto } from './user.dto';
 
 class BusinessCountDto {
   @ApiProperty({ example: 0 })

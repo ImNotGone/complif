@@ -10,14 +10,7 @@ import { RiskEngineService } from './risk-engine.service';
 import { PrismaService } from 'src/prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { BusinessStatus } from '@prisma/client';
-
-interface FindAllFilters {
-  page: number;
-  limit: number;
-  status?: BusinessStatus;
-  country?: string;
-  search?: string;
-}
+import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 
 @Injectable()
 export class BusinessesService {
@@ -126,7 +119,7 @@ export class BusinessesService {
     }
   }
 
-  async findAll(filters: FindAllFilters) {
+  async findAll(filters: FindBusinessesQueryDto) {
     const { page, limit, status, country, search } = filters;
     const skip = (page - 1) * limit;
 

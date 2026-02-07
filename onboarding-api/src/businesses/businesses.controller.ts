@@ -27,6 +27,7 @@ import { AuthenticatedOnly } from 'src/auth/auth.decorator';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { StatusHistoryResponseDto } from './dto/status-history-response.dto';
 import { BusinessStatus } from '@prisma/client';
+import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 
 @ApiTags('Businesses')
 @Controller('businesses')
@@ -52,22 +53,8 @@ export class BusinessesController {
   @ApiQuery({ name: 'status', required: false, enum: BusinessStatus })
   @ApiQuery({ name: 'country', required: false, example: 'AR' })
   @ApiQuery({ name: 'search', required: false, example: 'Acme Corp' })
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('status') status?: BusinessStatus,
-    @Query('country') country?: string,
-    @Query('search') search?: string,
-  ) {
-    let auxPage = page ? parseInt(page) : 1;
-    let auxLimit = limit ? parseInt(limit) : 10;
-    return this.businessesService.findAll({
-      page: auxPage < 0 ? 1 : auxPage,
-      limit: auxLimit < 0 ? 10 : auxLimit,
-      status,
-      country,
-      search,
-    });
+  findAll( @Query() query: FindBusinessesQueryDto) {
+    return this.businessesService.findAll(query);
   }
 
   @AuthenticatedOnly()

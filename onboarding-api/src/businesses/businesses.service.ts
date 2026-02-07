@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RiskEngineService } from './risk-engine.service';
 import { PrismaService } from 'src/prisma.service';
+import { ChangeBusinessStatusDto } from './dto/change-buisiness-status.dto';
 
 @Injectable()
 export class BusinessesService {
@@ -78,6 +79,44 @@ export class BusinessesService {
   remove(id: string) {
     return this.prisma.business.delete({
       where: { id },
+    });
+  }
+
+  async changeStatus(id: string, dto: ChangeBusinessStatusDto) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException();
+
+    const updated = await this.prisma.business.update({
+      where: { id },
+      data: { status: dto.status },
+    });
+
+    await this.prisma.statusHistory.create({
+      data: {
+        businessId: id,
+        status: dto.status,
+        reason: dto.reason,
+      },
+    });
+
+    // TODO (WEBHOOK): this.notificationsService.businessStatusChanged(updated);
+
+    return updated;
+  }
+
+  async getStatusHistory(businessId: string) {
+    const businessExists = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+
+    if (!businessExists) {
+      throw new NotFoundException('Business not found');
+    }
+
+    return this.prisma.statusHistory.findMany({
+      where: { businessId },
+      orderBy: { createdAt: 'asc' },
     });
   }
 }

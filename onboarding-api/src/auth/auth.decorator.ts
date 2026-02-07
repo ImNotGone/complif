@@ -1,11 +1,11 @@
-import { applyDecorators } from '@nestjs/common';
-import { ApiBearerAuth } from '@nestjs/swagger';
-import { Roles } from './roles.decorator';
-import { Role } from '@prisma/client';
+import { applyDecorators, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from './jwt.guard';
 
-export function AuthenticatedOnly(...roles: Role[]) {
+export function AuthenticatedOnly() {
   return applyDecorators(
+    UseGuards(JwtAuthGuard),
     ApiBearerAuth('access-token'),
-    Roles(...roles),
+    ApiUnauthorizedResponse({ description: 'JWT missing or invalid' }),
   );
 }

@@ -3,4 +3,4 @@
     - al haber agregado una guard global, esto significa que para los endpoints publicos hay q anotarlos manualmente
     
 2. tax id deberia ser @unique?
-    - no le puse unique porque nose como es el cuit / identificador fiscal x pais y quizas tenia colisiones
+    - puse el constraint de unique por taxid y country juntos

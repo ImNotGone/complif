@@ -12,10 +12,8 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const hashedPasswordAdmin = await bcrypt.hash("admin123", 10);
 
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@portal.com" },
-    update: {},
-    create: {
+  const admin = await prisma.user.create({
+    data: {
       email: "admin@portal.com",
       password: hashedPasswordAdmin,
       role: Role.ADMIN,
@@ -23,14 +21,12 @@ async function main() {
   });
 
     const hashedPasswordViewer = await bcrypt.hash("viewer123", 10);
-    const viewer = await prisma.user.upsert({
-    where: { email: "viewer@portal.com" },
-    update: {},
-    create: {
+    const viewer = await prisma.user.create({
+      data: {
       email: "viewer@portal.com",
       password: hashedPasswordViewer,
       role: Role.VIEWER,
-    },
+      }
   });
 
   console.log({ admin });

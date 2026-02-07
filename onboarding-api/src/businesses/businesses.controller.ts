@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   Query,
   Req,
 } from '@nestjs/common';
@@ -40,7 +39,7 @@ export class BusinessesController {
   @ApiCreatedResponse({ description: 'Business created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input or tax ID validation failed' })
   create(@Body() createBusinessDto: CreateBusinessDto, @Req() req: any) {
-    const userId = req.user.sub; // Extract from JWT
+    const userId = req.user.userId;
     return this.businessesService.create(createBusinessDto, userId);
   }
 
@@ -78,7 +77,7 @@ export class BusinessesController {
     @Body() updateBusinessDto: UpdateBusinessDto,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.userId;
     return this.businessesService.update(id, updateBusinessDto, userId);
   }
 
@@ -94,7 +93,7 @@ export class BusinessesController {
     @Body() dto: ChangeBusinessStatusDto,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.userId;
     return this.businessesService.changeStatus(id, dto, userId);
   }
 

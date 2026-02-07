@@ -9,7 +9,6 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RiskEngineService } from './risk-engine.service';
 import { PrismaService } from 'src/prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
-import { BusinessStatus } from '@prisma/client';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 
 @Injectable()
@@ -19,10 +18,10 @@ export class BusinessesService {
   constructor(
     private prisma: PrismaService,
     private riskEngine: RiskEngineService,
-  ) { }
+  ) {}
 
   async create(createBusinessDto: CreateBusinessDto, createdById: string) {
-    this.logger.log(`Creating business: ${createBusinessDto.name} (Tax ID: ${createBusinessDto.taxId})`);
+    this.logger.log(`Creating business: ${createBusinessDto.name} (Tax ID: ${createBusinessDto.taxId}) by user ${createdById}`);
 
     // 1. Validate Tax ID with external microservice (Mock)
     await this.validateTaxIdExternal(createBusinessDto.taxId, createBusinessDto.country);
@@ -61,14 +60,21 @@ export class BusinessesService {
     // 5. Create business with initial risk calculation and status history
     const newBusiness = await this.prisma.business.create({
       data: {
-        ...createBusinessDto,
+        name: createBusinessDto.name,
+        taxId: createBusinessDto.taxId,
+        country: createBusinessDto.country,
+        industry: createBusinessDto.industry,
         riskScore: riskCalculation.totalScore,
         status: initialStatus,
-        createdById,
+        createdBy: {
+          connect: { id: createdById }, // Connect to existing user
+        },
         statusHistory: {
           create: {
             status: initialStatus,
-            changedById: createdById,
+            changedBy: {
+              connect: { id: createdById },
+            },
             reason: `Initial creation. Risk Score: ${riskCalculation.totalScore}`,
           },
         },
@@ -93,7 +99,7 @@ export class BusinessesService {
 
     // 6. Log notification (webhook mock)
     this.logger.log(
-      `Business created: ${newBusiness.name} [Risk: ${riskCalculation.totalScore}, Status: ${initialStatus}]`,
+      `Business created successfully: ${newBusiness.name} | Risk: ${riskCalculation.totalScore} | Status: ${initialStatus}`,
     );
 
     return newBusiness;
@@ -155,7 +161,6 @@ export class BusinessesService {
 
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
 
-
     return {
       data: businesses,
       meta: {
@@ -197,12 +202,10 @@ export class BusinessesService {
 
     if (!business) {
       this.logger.warn(`Business not found: ${id}`);
-
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
     this.logger.debug(`Business found: ${business.name}`);
-
     return business;
   }
 
@@ -211,7 +214,7 @@ export class BusinessesService {
     updateBusinessDto: UpdateBusinessDto,
     updatedById: string,
   ) {
-    this.logger.log(`Updating business: ${id}`);
+    this.logger.log(`Updating business: ${id} by user ${updatedById}`);
 
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) {
@@ -234,7 +237,9 @@ export class BusinessesService {
       where: { id },
       data: {
         ...updateBusinessDto,
-        updatedById,
+        updatedBy: {
+          connect: { id: updatedById },
+        },
       },
       include: {
         documents: { where: { deletedAt: null } },
@@ -244,7 +249,8 @@ export class BusinessesService {
     // Auto-recalculate risk if relevant fields changed
     if (needsRiskRecalc) {
       this.logger.log(`Auto-recalculating risk for business ${id} due to update`);
-      await this.recalculateRisk(id);
+      const response = await this.recalculateRisk(id);
+      updated.riskScore = response.newScore;
     }
 
     this.logger.log(`Business updated successfully: ${id}`);
@@ -256,7 +262,8 @@ export class BusinessesService {
     dto: ChangeBusinessStatusDto,
     changedById: string,
   ) {
-    this.logger.log(`Changing status for business ${id} to ${dto.status}`);
+    this.logger.log(`Changing status for business ${id} to ${dto.status} by user ${changedById}`);
+
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) {
       this.logger.warn(`Business not found for status change: ${id}`);
@@ -281,16 +288,18 @@ export class BusinessesService {
     // Create status history entry
     await this.prisma.statusHistory.create({
       data: {
-        businessId: id,
+        business: {connect: {id: id}},
         status: dto.status,
-        changedById,
+        changedBy: {
+          connect: { id: changedById },
+        },
         reason: dto.reason || `Status changed to ${dto.status}`,
       },
     });
 
     // Mock notification (webhook/email)
     this.logger.log(
-      `NOTIFICATION: Business ${business.name} status changed: ${business.status} -> ${dto.status}`,
+      `NOTIFICATION: Business "${business.name}" status changed from ${business.status} to ${dto.status}`,
     );
     // TODO: this.notificationsService.sendStatusChangeNotification(updated);
 
@@ -299,6 +308,7 @@ export class BusinessesService {
 
   async getStatusHistory(businessId: string) {
     this.logger.debug(`Fetching status history for business: ${businessId}`);
+
     const businessExists = await this.prisma.business.findUnique({
       where: { id: businessId },
       select: { id: true },
@@ -320,7 +330,6 @@ export class BusinessesService {
     });
 
     this.logger.debug(`Retrieved ${history.length} status history entries`);
-
     return history;
   }
 
@@ -365,7 +374,7 @@ export class BusinessesService {
     });
 
     this.logger.log(
-      `Risk recalculated for ${business.name}: ${business.riskScore} -> ${riskCalculation.totalScore}`,
+      `Risk recalculated for "${business.name}": ${business.riskScore} -> ${riskCalculation.totalScore}`,
     );
 
     return {

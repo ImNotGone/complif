@@ -4,3 +4,6 @@
     
 2. tax id deberia ser @unique?
     - puse el constraint de unique por taxid y country juntos
+
+3. la task menciona un enpoint para calcular riesgo, me parece mas logico que el riesgo se calcule automaticamente en cada paso
+    - agregue el enpoint para hacer trigger de un calculo manual pero hice que el riesgo se calcule siempre q sea relevante

@@ -17,7 +17,7 @@ export class CreateBusinessDto {
 
   @ApiProperty({
     description: 'Tax identification number of the business',
-    example: '30-71234567-8',
+    example: '30712345678',
   })
   @IsString()
   @IsNotEmpty()
@@ -40,6 +40,9 @@ export class CreateBusinessDto {
       'money_exchange',
       'retail',
       'software',
+      'insurance',
+      'media',
+      'food'
     ],
   })
   @IsString()
@@ -50,6 +53,9 @@ export class CreateBusinessDto {
     'money_exchange',
     'retail',
     'software',
+    'insurance',
+    'media',
+    'food'
   ])
   industry: string;
 }

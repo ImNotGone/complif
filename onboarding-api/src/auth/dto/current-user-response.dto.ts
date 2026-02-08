@@ -3,13 +3,13 @@ import { Role } from '@prisma/client';
 
 export class CurrentUserResponseDto {
   @ApiProperty({
-    example: 'clwxyz123-456-789',
+    example: 'ffbded62-e361-4495-89d3-661f545b0093',
     description: 'User ID (UUID)',
   })
   id: string;
 
   @ApiProperty({
-    example: 'admin@portal.com',
+    example: 'admin@complif.com',
     description: 'User email',
   })
   email: string;

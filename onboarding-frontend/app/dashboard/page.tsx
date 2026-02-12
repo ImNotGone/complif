@@ -205,10 +205,13 @@ export default function DashboardPage() {
               />
             </div>
 
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as BusinessStatus | 'ALL')}
-            >
+              <Select
+                value={statusFilter}
+                onValueChange={(value) =>
+                  setStatusFilter(value as BusinessStatus | 'ALL')
+                }
+                name="status-filter"
+              >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>

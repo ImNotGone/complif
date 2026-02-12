@@ -92,7 +92,7 @@ export default function NewBusinessPage() {
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-lg"
           onClick={() => router.push('/dashboard')}
         >
           <ArrowLeft className="h-5 w-5" />

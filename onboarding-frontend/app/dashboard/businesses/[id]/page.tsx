@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { businessesApi, documentsApi } from '@/lib/api/services';
 import { useAuthStore } from '@/lib/store/auth-store';
-import type { Business, StatusHistory, RiskCalculation, Document, BusinessStatus } from '@/lib/types/api';
+import { type Business, type StatusHistory, type RiskCalculation, type Document, type BusinessStatus, DocumentType } from '@/lib/types/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,12 +12,10 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft,
-  Building2,
   AlertCircle,
   CheckCircle,
   Clock,
   FileText,
-  TrendingUp,
   Upload,
   Download,
   Trash2,
@@ -40,6 +38,13 @@ const STATUS_ICONS = {
   APPROVED: CheckCircle,
   REJECTED: AlertCircle,
 };
+
+const REQUIRED_DOCUMENT_TYPES: DocumentType[] = [
+  DocumentType.TAX_CERTIFICATE,
+  DocumentType.REGISTRATION,
+  DocumentType.INSURANCE_POLICY,
+] as const;
+
 
 export default function BusinessDetailPage() {
   const params = useParams();
@@ -139,6 +144,14 @@ export default function BusinessDetailPage() {
 
   const riskLevel = getRiskLevel(business.riskScore);
 
+  const requiredDocsCount = documents.filter(
+    (d) =>
+      REQUIRED_DOCUMENT_TYPES.includes(d.type)
+  ).length;
+
+  const requiredDocsTotal = REQUIRED_DOCUMENT_TYPES.length;
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -205,16 +218,17 @@ export default function BusinessDetailPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600">
-              Documents
+              Required Documents
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {documents.filter((d) => !d.deletedAt).length} / 3
+              {requiredDocsCount} / {requiredDocsTotal}
             </div>
             <p className="text-xs text-slate-600">
-              {((documents.filter((d) => !d.deletedAt).length / 3) * 100).toFixed(0)}% complete
+              {((requiredDocsCount / requiredDocsTotal) * 100).toFixed(0)}% complete
             </p>
+
           </CardContent>
         </Card>
 

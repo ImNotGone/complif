@@ -13,11 +13,18 @@ import { BusinessesService } from 'src/businesses/businesses.service';
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
 
+  // Only these 3 are required and limited to 1 per type
+  private readonly REQUIRED_DOCUMENT_TYPES: DocumentType[] = [
+    "TAX_CERTIFICATE",
+    "REGISTRATION",
+    "INSURANCE_POLICY",
+  ];
+
   constructor(
     private prisma: PrismaService,
     private s3Service: S3Service,
     private businessesService: BusinessesService,
-  ) {}
+  ) { }
 
   async uploadDocument(
     businessId: string,
@@ -32,6 +39,11 @@ export class DocumentsService {
     // 1. Verify business exists
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
+      include: {
+        documents: {
+          where: { deletedAt: null },
+        },
+      },
     });
 
     if (!business) {
@@ -45,19 +57,27 @@ export class DocumentsService {
       throw new BadRequestException('Only PDF files are allowed');
     }
 
-    // 3. Upload to S3
-    const s3Key = await this.s3Service.uploadFile(
-      file,
-      businessId,
-      type,
-    );
+    // 3. Check if this required document type already exists (only for required types)
+    if (this.REQUIRED_DOCUMENT_TYPES.includes(type)) {
+      const existingDoc = business.documents.find((d) => d.type === type);
+      if (existingDoc) {
+        this.logger.warn(
+          `Document type ${type} already exists for business ${businessId}`,
+        );
+        throw new BadRequestException(
+          `A ${type.replace('_', ' ')} document already exists. Please delete the existing one first.`,
+        );
+      }
+    }
 
+    // 4. Upload to S3
+    const s3Key = await this.s3Service.uploadFile(file, businessId, type);
     this.logger.log(`File uploaded to S3: ${s3Key}`);
 
-    // 4. Generate presigned URL for download
+    // 5. Generate presigned URL for download
     const url = await this.s3Service.getPresignedUrl(s3Key);
 
-    // 5. Save document metadata to database
+    // 6. Save document metadata to database
     const document = await this.prisma.document.create({
       data: {
         type,
@@ -82,11 +102,18 @@ export class DocumentsService {
       `Document saved to database: ${document.id} (${document.filename})`,
     );
 
-    // 6. Auto-recalculate risk score (document completeness changed)
-    this.logger.log(
-      `Auto-recalculating risk for business ${businessId} due to new document upload`,
-    );
-    await this.businessesService.recalculateRisk(businessId);
+    // 7. Always recalculate if a required document was uploaded
+    if (this.REQUIRED_DOCUMENT_TYPES.includes(type)) {
+      this.logger.log(
+        `Required document uploaded. Recalculating risk for business ${businessId}`,
+      );
+      await this.businessesService.recalculateRisk(businessId);
+    } else {
+      this.logger.debug(
+        `Skipping risk recalculation for business ${businessId}: uploaded document is not \'required\'`,
+      );
+    }
+
 
     return document;
   }
@@ -125,7 +152,9 @@ export class DocumentsService {
   }
 
   async getDocument(businessId: string, documentId: string) {
-    this.logger.debug(`Fetching document: ${documentId} for business: ${businessId}`);
+    this.logger.debug(
+      `Fetching document: ${documentId} for business: ${businessId}`,
+    );
 
     const document = await this.prisma.document.findFirst({
       where: {
@@ -157,7 +186,9 @@ export class DocumentsService {
   }
 
   async deleteDocument(businessId: string, documentId: string) {
-    this.logger.log(`Soft deleting document: ${documentId} for business: ${businessId}`);
+    this.logger.log(
+      `Soft deleting document: ${documentId} for business: ${businessId}`,
+    );
 
     const document = await this.prisma.document.findFirst({
       where: {
@@ -180,11 +211,17 @@ export class DocumentsService {
 
     this.logger.log(`Document soft deleted: ${documentId} (${document.filename})`);
 
-    // Auto-recalculate risk score (document completeness changed)
-    this.logger.log(
-      `Auto-recalculating risk for business ${businessId} due to document deletion`,
-    );
-    await this.businessesService.recalculateRisk(businessId);
+    // Always recalculate if a required document was deleted
+    if (this.REQUIRED_DOCUMENT_TYPES.includes(document.type)) {
+      this.logger.log(
+        `Required document deleted. Recalculating risk for business ${businessId}`,
+      );
+      await this.businessesService.recalculateRisk(businessId);
+    } else {
+      this.logger.debug(
+        `Skipping risk recalculation for business ${businessId}: deleted document is not \'required\'`,
+      );
+    }
 
     return {
       message: 'Document deleted successfully',

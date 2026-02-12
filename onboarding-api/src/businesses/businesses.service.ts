@@ -10,15 +10,23 @@ import { RiskEngineService } from './risk-engine.service';
 import { PrismaService } from 'src/prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
+import { DocumentType } from '@prisma/client';
 
 @Injectable()
 export class BusinessesService {
   private readonly logger = new Logger(BusinessesService.name);
 
+  private readonly REQUIRED_DOCUMENT_TYPES: DocumentType[] = [
+    "TAX_CERTIFICATE",
+    "REGISTRATION",
+    "INSURANCE_POLICY",
+  ];
+
+
   constructor(
     private prisma: PrismaService,
     private riskEngine: RiskEngineService,
-  ) {}
+  ) { }
 
   async create(createBusinessDto: CreateBusinessDto, createdById: string) {
     this.logger.log(`Creating business: ${createBusinessDto.name} (Tax ID: ${createBusinessDto.taxId}) by user ${createdById}`);
@@ -149,12 +157,16 @@ export class BusinessesService {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: {
-            select: { 
+            select: {
               documents: { where: { deletedAt: null } },
               statusHistory: true,
               riskCalculations: true,
             },
           },
+          documents: {
+            where: { deletedAt: null },
+            select: { type: true }
+          }
         },
       }),
       this.prisma.business.count({ where }),
@@ -164,10 +176,26 @@ export class BusinessesService {
       this.prisma.business.count({ where: { status: 'REJECTED' } }),
     ]);
 
+    const transformedBusinesses = businesses.map((business) => {
+      const requiredDocCount = business.documents.filter((d) =>
+        this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+      ).length;
+
+      return {
+        ...business,
+        _count: {
+          ...business._count,
+          documents: undefined,
+          requiredDocuments: requiredDocCount,
+        },
+        documents: undefined,
+      };
+    });
+
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
 
     return {
-      data: businesses,
+      data: transformedBusinesses,
       meta: {
         page,
         limit,
@@ -202,6 +230,10 @@ export class BusinessesService {
             riskCalculations: true,
           },
         },
+        documents: {
+          where: { deletedAt: null },
+          select: { type: true }
+        }
       },
     });
 
@@ -210,8 +242,22 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
+    const requiredDocCount = business.documents.filter((d) =>
+      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+    ).length;
+
+    const transformedBusiness = {
+      ...business,
+      _count: {
+        ...business._count,
+        documents: undefined,
+        requiredDocuments: requiredDocCount,
+      },
+      documents: undefined,
+    };
+
     this.logger.debug(`Business found: ${business.name}`);
-    return business;
+    return transformedBusiness;
   }
 
   async update(

@@ -256,7 +256,7 @@ export default function DashboardPage() {
                     <TableHead>Industry</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Risk Score</TableHead>
-                    <TableHead>Documents</TableHead>
+                    <TableHead>Required Docs</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -279,16 +279,14 @@ export default function DashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={`font-semibold ${
-                            RISK_COLORS[getRiskLevel(business.riskScore)]
-                          }`}
-                        >
+                        <span className={`font-semibold ${RISK_COLORS[getRiskLevel(business.riskScore)]}`}>
                           {business.riskScore}
                         </span>
                       </TableCell>
                       <TableCell>
-                        {business._count?.documents || 0} / 3
+                        <span className={business._count?.requiredDocuments === 3 ? 'text-green-600 font-medium' : ''}>
+                          {business._count?.requiredDocuments || 0}/3
+                        </span>
                       </TableCell>
                       <TableCell className="text-sm text-slate-500">
                         {format(new Date(business.createdAt), 'MMM d, yyyy')}

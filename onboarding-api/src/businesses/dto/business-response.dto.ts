@@ -4,7 +4,7 @@ import { UserDto } from './user.dto';
 
 class BusinessCountDto {
   @ApiProperty({ example: 0 })
-  documents: number;
+  requiredDocuments: number;
 
   @ApiProperty({ example: 0 })
   statusHistory: number;

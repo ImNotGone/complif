@@ -45,7 +45,7 @@ export interface Business {
   createdBy?: UserDto;
   updatedBy?: UserDto;
   _count?: {
-    documents: number;
+    requiredDocuments: number;
     statusHistory: number;
     riskCalculations: number;
   };

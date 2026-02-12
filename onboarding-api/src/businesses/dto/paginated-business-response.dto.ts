@@ -15,10 +15,27 @@ class PaginationMetaDto {
   totalPages: number;
 }
 
+class PaginatedBusinessesStatsDto {
+  @ApiProperty({ example: 31 })
+  pending: number;
+
+  @ApiProperty({ example: 9 })
+  inReview: number;
+
+  @ApiProperty({ example: 1 })
+  approved: number;
+
+  @ApiProperty({ example: 1 })
+  rejected: number;
+}
+
 export class PaginatedBusinessesResponseDto {
   @ApiProperty({ type: [BusinessResponseDto] })
   data: BusinessResponseDto[];
 
   @ApiProperty({ type: PaginationMetaDto })
   meta: PaginationMetaDto;
+
+  @ApiProperty({type: PaginatedBusinessesStatsDto})
+  stats: PaginatedBusinessesStatsDto;
 }

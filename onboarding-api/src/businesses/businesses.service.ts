@@ -141,7 +141,7 @@ export class BusinessesService {
       ];
     }
 
-    const [businesses, total] = await Promise.all([
+    const [businesses, total, pendingCount, inReviewCount, approvedCount, rejectedCount] = await Promise.all([
       this.prisma.business.findMany({
         where,
         skip,
@@ -158,6 +158,10 @@ export class BusinessesService {
         },
       }),
       this.prisma.business.count({ where }),
+      this.prisma.business.count({ where: { status: 'PENDING' } }),
+      this.prisma.business.count({ where: { status: 'IN_REVIEW' } }),
+      this.prisma.business.count({ where: { status: 'APPROVED' } }),
+      this.prisma.business.count({ where: { status: 'REJECTED' } }),
     ]);
 
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
@@ -169,6 +173,12 @@ export class BusinessesService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+      stats: {
+        pending: pendingCount,
+        inReview: inReviewCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
       },
     };
   }

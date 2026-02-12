@@ -147,3 +147,15 @@ export interface FindBusinessesQuery {
   country?: string;
   search?: string;
 }
+export interface BusinessStats {
+  pending: number;
+  inReview: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+  stats?: BusinessStats; // Add stats to paginated response
+}

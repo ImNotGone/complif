@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Search, TrendingUp, AlertCircle, CheckCircle, Clock, CircleX } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -80,14 +80,15 @@ export default function DashboardPage() {
       setTotalPages(response.meta.totalPages);
       setTotal(response.meta.total);
 
-      // Calculate stats
-      const allBusinesses = response.data;
-      setStats({
-        pending: allBusinesses.filter((b) => b.status === 'PENDING').length,
-        inReview: allBusinesses.filter((b) => b.status === 'IN_REVIEW').length,
-        approved: allBusinesses.filter((b) => b.status === 'APPROVED').length,
-        rejected: allBusinesses.filter((b) => b.status === 'REJECTED').length,
-      });
+      // Set stats from API response
+      if (response.stats) {
+        setStats({
+          pending: response.stats.pending,
+          inReview: response.stats.inReview,
+          approved: response.stats.approved,
+          rejected: response.stats.rejected,
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch businesses:', error);
       toast.error('Failed to load businesses');
@@ -126,8 +127,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-600">
@@ -167,12 +167,26 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-600">
+              Rejected
+            </CardTitle>
+            <CircleX className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.rejected}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
               Total
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-slate-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-2xl font-bold">
+              {stats.pending + stats.inReview + stats.approved + stats.rejected}
+            </div>
           </CardContent>
         </Card>
       </div>

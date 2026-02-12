@@ -25,7 +25,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ChangeStatusDialog } from '@/components/change-status-dialog';
-import  {UploadDocumentDialog} from '@/components/upload-document-dialog';
+import { UploadDocumentDialog } from '@/components/upload-document-dialog';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -306,21 +306,26 @@ export default function BusinessDetailPage() {
                       {riskHistory[0].totalScore}
                     </span>
                   </div>
-                  
+
                   {riskHistory[0].metadata && (
                     <div className="mt-4 space-y-2">
-                      <p className="text-sm font-medium text-slate-700">Flags:</p>
-                      {riskHistory[0].metadata.highRiskCountry && (
-                        <Badge variant="destructive">High Risk Country</Badge>
-                      )}
-                      {riskHistory[0].metadata.highRiskIndustry && (
-                        <Badge variant="destructive">High Risk Industry</Badge>
-                      )}
-                      {riskHistory[0].metadata.missingDocuments.length > 0 && (
-                        <div className="text-sm text-slate-600">
-                          Missing: {riskHistory[0].metadata.missingDocuments.join(', ')}
-                        </div>
-                      )}
+                      <div className="flex gap-2">
+                        {riskHistory[0].metadata.highRiskCountry && (
+                          <Badge variant="destructive">High Risk Country</Badge>
+                        )}
+                        {riskHistory[0].metadata.highRiskIndustry && (
+                          <Badge variant="destructive">High Risk Industry</Badge>
+                        )}
+                        {riskHistory[0].metadata.missingDocuments.filter((p) => p == "TAX_CERTIFICATE").length != 0 && (
+                          <Badge variant="destructive">Missing Tax certificate document</Badge>
+                        )}
+                        {riskHistory[0].metadata.missingDocuments.filter((p) => p == "REGISTRATION").length != 0 && (
+                          <Badge variant="destructive">Missing Registration document</Badge>
+                        )}
+                        {riskHistory[0].metadata.missingDocuments.filter((p) => p == "INSURANCE_POLICY").length != 0 && (
+                          <Badge variant="destructive">Missing Insurance policy document</Badge>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

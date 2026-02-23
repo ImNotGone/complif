@@ -22,16 +22,16 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Login
-      const { access_token } = await authApi.login({ email, password });
-      
-      // Get user info
+      const { access_token, refresh_token, expires_in } = await authApi.login({ email, password });
+
+      // Temporarily set the access token so the /auth/me request is authenticated
       localStorage.setItem('access_token', access_token);
+
       const user = await authApi.getCurrentUser();
-      
-      // Update store
-      login(access_token, user);
-      
+
+      // Persist both tokens + user in the store; expires_in drives the cookie lifetime
+      login(access_token, refresh_token, expires_in, user);
+
       toast.success('Login successful!');
       router.push('/dashboard');
     } catch (error: any) {

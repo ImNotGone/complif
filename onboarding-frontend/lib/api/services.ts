@@ -21,6 +21,23 @@ export const authApi = {
     return response.data;
   },
 
+  refresh: async (refreshToken: string): Promise<{ access_token: string; expires_in: number }> => {
+    const response = await apiClient.post(
+      '/auth/refresh',
+      {},
+      { headers: { Authorization: `Bearer ${refreshToken}` } },
+    );
+    return response.data;
+  },
+
+  logout: async (refreshToken: string): Promise<void> => {
+    await apiClient.post(
+      '/auth/logout',
+      {},
+      { headers: { Authorization: `Bearer ${refreshToken}` } },
+    );
+  },
+
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get('/auth/me');
     return response.data;

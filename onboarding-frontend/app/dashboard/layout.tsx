@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, LogOut, User } from 'lucide-react';
+import { Building2, LogOut } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -23,9 +23,9 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, logout } = useAuthStore();
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
   };
 
   const getInitials = (email: string) => {
@@ -41,9 +41,7 @@ export default function DashboardLayout({
             <div className="flex items-center gap-3">
               <Building2 className="h-8 w-8 text-blue-600" />
               <div>
-                <h1 className="text-xl font-bold text-slate-900">
-                  Onboarding Portal
-                </h1>
+                <h1 className="text-xl font-bold text-slate-900">Onboarding Portal</h1>
                 <p className="text-xs text-slate-500">Business Management</p>
               </div>
             </div>
@@ -59,9 +57,7 @@ export default function DashboardLayout({
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                         <Avatar>
-                          <AvatarFallback>
-                            {getInitials(user.email)}
-                          </AvatarFallback>
+                          <AvatarFallback>{getInitials(user.email)}</AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
@@ -87,9 +83,7 @@ export default function DashboardLayout({
       </header>
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
     </div>
   );
 }

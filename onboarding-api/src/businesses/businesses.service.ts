@@ -7,7 +7,7 @@ import {
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RiskEngineService } from './risk-engine.service';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
@@ -176,26 +176,10 @@ export class BusinessesService {
       this.prisma.business.count({ where: { status: 'REJECTED' } }),
     ]);
 
-    const transformedBusinesses = businesses.map((business) => {
-      const requiredDocCount = business.documents.filter((d) =>
-        this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
-      ).length;
-
-      return {
-        ...business,
-        _count: {
-          ...business._count,
-          documents: undefined,
-          requiredDocuments: requiredDocCount,
-        },
-        documents: undefined,
-      };
-    });
-
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
 
     return {
-      data: transformedBusinesses,
+      data: businesses.map(b => this.transformBusiness(b)),
       meta: {
         page,
         limit,
@@ -242,22 +226,8 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
-    const requiredDocCount = business.documents.filter((d) =>
-      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
-    ).length;
-
-    const transformedBusiness = {
-      ...business,
-      _count: {
-        ...business._count,
-        documents: undefined,
-        requiredDocuments: requiredDocCount,
-      },
-      documents: undefined,
-    };
-
     this.logger.debug(`Business found: ${business.name}`);
-    return transformedBusiness;
+    return this.transformBusiness(business);
   }
 
   async update(
@@ -460,6 +430,23 @@ export class BusinessesService {
       previousScore: business.riskScore,
       newScore: riskCalculation.totalScore,
       breakdown: riskCalculation,
+    };
+  }
+
+  private transformBusiness(business: any) {
+    const requiredDocCount = business.documents.filter((d) =>
+      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+    ).length;
+
+    const { documents, _count, ...rest } = business;
+    const { documents: _removedDocs, ...countWithoutDocuments } = _count;
+
+    return {
+      ...rest,
+      _count: {
+        ...countWithoutDocuments,
+        requiredDocuments: requiredDocCount,
+      },
     };
   }
 }

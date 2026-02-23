@@ -55,7 +55,11 @@ export class DocumentsController {
   })
   @ApiCreatedResponse({ description: 'Document uploaded successfully' })
   @ApiNotFoundResponse({ description: 'Business not found' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024,
+    },
+  }))
   async uploadDocument(
     @Param('businessId') businessId: string,
     @Body() uploadDocumentDto: UploadDocumentDto,

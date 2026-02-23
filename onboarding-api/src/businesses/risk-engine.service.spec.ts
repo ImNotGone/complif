@@ -1,5 +1,6 @@
 import { RiskEngineService } from './risk-engine.service';
 import { DocumentType } from '@prisma/client';
+import { Test, TestingModule } from '@nestjs/testing';
 
 function makeDoc(type: DocumentType, deletedAt: Date | null = null) {
   return { type, deletedAt };
@@ -14,8 +15,17 @@ const ALL_DOCS = [
 describe('RiskEngineService', () => {
   let service: RiskEngineService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new RiskEngineService();
+    jest.clearAllMocks();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RiskEngineService,
+      ],
+    }).compile();
+
+    service = module.get<RiskEngineService>(RiskEngineService);
   });
 
   describe('calculateRisk — country risk', () => {
@@ -161,7 +171,7 @@ describe('RiskEngineService', () => {
       const result = service.calculateRisk('AR', 'software', []);
       expect(result.totalScore).toBe(20);
     });
-    
+
     it('returns 30 for low-risk country, high-risk industry, complete documents', () => {
       const result = service.calculateRisk('AR', 'casino', ALL_DOCS);
       expect(result.totalScore).toBe(30);

@@ -16,7 +16,6 @@ describe('RiskEngineService', () => {
   let service: RiskEngineService;
 
   beforeEach(async () => {
-    service = new RiskEngineService();
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({

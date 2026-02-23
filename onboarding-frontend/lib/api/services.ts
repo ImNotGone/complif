@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { apiClient } from './client';
 import type {
   Business,
@@ -14,6 +15,18 @@ import type {
   FindBusinessesQuery,
 } from '../types/api';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+/**
+ * A raw axios instance with no interceptors.
+ *
+ * If I were to use the apiClient for logout or refresh, the interceptor for 401 would bug the requests
+ */
+const rawAxios = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
+
 // Auth API
 export const authApi = {
   login: async (data: LoginDto): Promise<LoginResponse> => {
@@ -22,7 +35,7 @@ export const authApi = {
   },
 
   refresh: async (refreshToken: string): Promise<{ access_token: string; expires_in: number }> => {
-    const response = await apiClient.post(
+    const response = await rawAxios.post(
       '/auth/refresh',
       {},
       { headers: { Authorization: `Bearer ${refreshToken}` } },
@@ -31,7 +44,7 @@ export const authApi = {
   },
 
   logout: async (refreshToken: string): Promise<void> => {
-    await apiClient.post(
+    await rawAxios.post(
       '/auth/logout',
       {},
       { headers: { Authorization: `Bearer ${refreshToken}` } },
@@ -97,11 +110,7 @@ export const documentsApi = {
     const response = await apiClient.post(
       `/businesses/${businessId}/documents`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     );
     return response.data;
   },

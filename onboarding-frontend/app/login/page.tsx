@@ -33,7 +33,7 @@ export default function LoginPage() {
       login(access_token, refresh_token, expires_in, user);
 
       toast.success('Login successful!');
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } catch (error: any) {
       console.error('Login failed:', error);
       toast.error(error.response?.data?.message || 'Invalid credentials');

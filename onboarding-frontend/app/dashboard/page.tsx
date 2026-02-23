@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessesApi } from '@/lib/api/services';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { COUNTRIES } from '@/lib/constants/countries';
 import type { Business, BusinessStatus, FindBusinessesQuery } from '@/lib/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,9 +54,9 @@ export default function DashboardPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<BusinessStatus | 'ALL'>('ALL');
-  const [countryFilter, setCountryFilter] = useState('');
+  const [countryFilter, setCountryFilter] = useState<string>('ALL');
 
-  // Stats
+  // Stats from API
   const [stats, setStats] = useState({
     pending: 0,
     inReview: 0,
@@ -73,13 +74,13 @@ export default function DashboardPage() {
 
       if (search) query.search = search;
       if (statusFilter !== 'ALL') query.status = statusFilter as BusinessStatus;
-      if (countryFilter) query.country = countryFilter;
+      if (countryFilter !== 'ALL') query.country = countryFilter;
 
       const response = await businessesApi.list(query);
       setBusinesses(response.data);
       setTotalPages(response.meta.totalPages);
       setTotal(response.meta.total);
-
+      
       // Set stats from API response
       if (response.stats) {
         setStats({
@@ -191,12 +192,17 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+      {/* Businesses Table */}
+      <Card className='gap-4'>
+        <CardHeader className='px-0 pb-0'>
+          <CardContent>
+          <CardTitle>Businesses</CardTitle>
+
+            <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4">
+
+              <div className="relative md:flex-1">
+
+              <Search className="absolute left-3 top-2 h-5 w-4 text-slate-400" />
               <Input
                 placeholder="Search by name or tax ID..."
                 value={search}
@@ -212,7 +218,7 @@ export default function DashboardPage() {
                 }
                 name="status-filter"
               >
-              <SelectTrigger>
+                <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -224,20 +230,24 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
 
-            <Input
-              placeholder="Filter by country (e.g., AR)"
+            <Select
               value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value.toUpperCase())}
-              maxLength={2}
-            />
+              onValueChange={setCountryFilter}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter by country" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="ALL">All Countries</SelectItem>
+                {COUNTRIES.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    {country.name} ({country.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
-      </Card>
-
-      {/* Businesses Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Businesses ({total})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

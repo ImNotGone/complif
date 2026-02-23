@@ -20,7 +20,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   providers: [
     AuthService,
     JwtAuthStrategy,
-    JwtAuthGuard
+    JwtAuthGuard,
+    JwtRefreshStrategy
   ],
   exports: [AuthService],
 })

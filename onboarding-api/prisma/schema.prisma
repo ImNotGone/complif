@@ -38,6 +38,7 @@ model User {
   updatedBusinesses     Business[]        @relation("UpdatedBy")
   uploadedDocuments     Document[]        @relation("UploadedBy")
   statusChanges         StatusHistory[]   @relation("ChangedBy")
+  refreshTokenVersion   Int               @default(0)
 }
 
 model Business {

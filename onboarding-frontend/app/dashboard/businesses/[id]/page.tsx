@@ -331,19 +331,19 @@ export default function BusinessDetailPage() {
                     <div className="mt-4 space-y-2">
                       <div className="flex gap-2">
                         {riskHistory[0].metadata.highRiskCountry && (
-                          <Badge variant="destructive">High Risk Country</Badge>
+                          <Badge variant="destructive" className="text-sm px-3 py-1">High Risk Country</Badge>
                         )}
                         {riskHistory[0].metadata.highRiskIndustry && (
-                          <Badge variant="destructive">High Risk Industry</Badge>
+                          <Badge variant="destructive" className="text-sm px-3 py-1">High Risk Industry</Badge>
                         )}
                         {riskHistory[0].metadata.missingDocuments.filter((p) => p == "TAX_CERTIFICATE").length != 0 && (
-                          <Badge variant="destructive">Missing Tax certificate document</Badge>
+                          <Badge variant="destructive" className="text-sm px-3 py-1">Missing Tax-Certificate Document</Badge>
                         )}
                         {riskHistory[0].metadata.missingDocuments.filter((p) => p == "REGISTRATION").length != 0 && (
-                          <Badge variant="destructive">Missing Registration document</Badge>
+                          <Badge variant="destructive" className="text-sm px-3 py-1">Missing Registration Document</Badge>
                         )}
                         {riskHistory[0].metadata.missingDocuments.filter((p) => p == "INSURANCE_POLICY").length != 0 && (
-                          <Badge variant="destructive">Missing Insurance policy document</Badge>
+                          <Badge variant="destructive" className="text-sm px-3 py-1">Missing Insurance-Policy Document</Badge>
                         )}
                       </div>
                     </div>

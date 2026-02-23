@@ -4,10 +4,10 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { DocumentType } from '@prisma/client';
 import { S3Service } from './s3.service';
-import { BusinessesService } from 'src/businesses/businesses.service';
+import { BusinessesService } from '../businesses/businesses.service';
 
 @Injectable()
 export class DocumentsService {

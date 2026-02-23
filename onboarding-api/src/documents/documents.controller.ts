@@ -22,8 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
-import { AuthenticatedOnly } from 'src/auth/decorators/auth.decorator';
-import { AdminOnly } from 'src/auth/decorators/admin.decorator';
+import { AuthenticatedOnly } from '../auth/decorators/auth.decorator';
+import { AdminOnly } from '../auth/decorators/admin.decorator';
 import { UploadDocumentDto } from './dto/upload-document.dto'; 
 
 @ApiTags('Documents')

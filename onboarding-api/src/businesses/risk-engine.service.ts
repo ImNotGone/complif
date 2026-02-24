@@ -40,6 +40,12 @@ export class RiskEngineService {
     'cryptocurrency',
   ];
 
+  private readonly COUNTRY_RISK = 40;
+  private readonly INDUSTRY_RISK = 30;
+  private readonly MISSING_DOCUMENTS_RISK = 20;
+
+  private readonly HIGH_RISK_THRESHOLD = 70;
+
   // Required document types
   private readonly REQUIRED_DOCUMENTS: DocumentType[] = [
     DocumentType.TAX_CERTIFICATE,
@@ -110,7 +116,7 @@ export class RiskEngineService {
    */
   private calculateCountryRisk(country: string): number {
     const isHighRisk = this.HIGH_RISK_COUNTRIES.includes(country.toUpperCase());
-    return isHighRisk ? 40 : 0;
+    return isHighRisk ? this.COUNTRY_RISK : 0;
   }
 
   /**
@@ -118,7 +124,7 @@ export class RiskEngineService {
    */
   private calculateIndustryRisk(industry: string): number {
     const isHighRisk = this.HIGH_RISK_INDUSTRIES.includes(industry.toLowerCase());
-    return isHighRisk ? 30 : 0;
+    return isHighRisk ? this.INDUSTRY_RISK : 0;
   }
 
   /**
@@ -141,7 +147,7 @@ export class RiskEngineService {
 
     const missingCount = missingDocuments.length;
 
-    const documentRisk = missingCount > 0 ? 20 : 0;
+    const documentRisk = missingCount > 0 ? this.MISSING_DOCUMENTS_RISK : 0;
 
     const completeness = Math.round(
       ((this.REQUIRED_DOCUMENTS.length - missingCount) /
@@ -162,7 +168,7 @@ export class RiskEngineService {
    * <=70 = Pending (can be auto-processed later)
    */
   determineInitialStatus(score: number): InitialBusinessStatus {
-    const status = score > 70 ? BusinessStatus.IN_REVIEW : BusinessStatus.PENDING;
+    const status = score > this.HIGH_RISK_THRESHOLD ? BusinessStatus.IN_REVIEW : BusinessStatus.PENDING;
     this.logger.debug(`Determined initial status: ${status} (score: ${score})`);
     return status;
   }
@@ -171,7 +177,7 @@ export class RiskEngineService {
    * Check if business should be flagged for review after updates
    */
   shouldRequireReview(score: number): boolean {
-    const requiresReview = score > 70;
+    const requiresReview = score > this.HIGH_RISK_THRESHOLD;
     if (requiresReview) {
       this.logger.warn(`Business flagged for review: Risk score ${score} exceeds threshold of 70`);
     }

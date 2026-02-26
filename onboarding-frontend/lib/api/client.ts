@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -20,10 +21,21 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-const clearSessionAndRedirect = () => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  document.cookie = 'access_token=; path=/; max-age=0';
+/**
+ * Clears all auth state and redirects to login.
+ *
+ * Imported lazily to avoid a circular dependency:
+ *   auth-store → authApi (services) → apiClient (client) → auth-store
+ *
+ * Calling logout() on the store is the single source of truth for clearing
+ * tokens — it handles localStorage, the cookie, and setting isAuthenticated:false
+ * in Zustand all at once. Without this, the root page.tsx reads a stale
+ * isAuthenticated:true from the persisted store and immediately redirects back
+ * to /dashboard, creating a redirect loop.
+ */
+const clearSessionAndRedirect = async () => {
+  const { useAuthStore } = await import('@/lib/store/auth-store');
+  await useAuthStore.getState().logout({ skipApi: true });
   window.location.href = '/login';
 };
 
@@ -67,7 +79,8 @@ apiClient.interceptors.response.use(
 
     if (!refreshToken) {
       isRefreshing = false;
-      clearSessionAndRedirect();
+      processQueue(error, null);
+      await clearSessionAndRedirect();
       return Promise.reject(error);
     }
 
@@ -80,9 +93,10 @@ apiClient.interceptors.response.use(
 
       const { access_token, expires_in } = response.data;
 
-      // Keep localStorage and cookie in sync (cookie is used by Next.js middleware)
+      // Keep localStorage, cookie, and Zustand store all in sync
       localStorage.setItem('access_token', access_token);
       document.cookie = `access_token=${access_token}; path=/; max-age=${expires_in}; SameSite=Lax`;
+      useAuthStore.getState().setToken(access_token, expires_in);
 
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -91,7 +105,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      clearSessionAndRedirect();
+      await clearSessionAndRedirect();
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

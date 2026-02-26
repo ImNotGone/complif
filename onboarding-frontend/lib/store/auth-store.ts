@@ -14,23 +14,18 @@ interface AuthState {
   setToken: (token: string, expiresIn: number) => void;
 }
 
-/**
- * Storage strategy:
- *
- * access_token — stored in BOTH localStorage and a cookie.
- *   - localStorage: read by the axios interceptor on every request.
- *   - Cookie:       read by Next.js middleware for SSR auth checks.
- *   Both are kept in sync. The cookie lifetime mirrors the token's
- *   expires_in value returned by the backend (currently 15 min / 900s).
- *
- * refresh_token — stored in localStorage ONLY, never in a cookie.
- *   Putting a refresh token in a cookie would expose it to automatic
- *   inclusion in cross-site requests (CSRF risk). It is only ever read
- *   explicitly by the logout and refresh flows.
- */
+const SEVEN_DAYS = 7 * 24 * 60 * 60;
 
 const setAccessTokenCookie = (token: string, expiresIn: number) => {
   document.cookie = `access_token=${token}; path=/; max-age=${expiresIn}; SameSite=Lax`;
+};
+
+// The session cookie has the same lifetime as the refresh token (7 days).
+// It carries no sensitive data — it exists purely so the middleware can
+// distinguish "no session at all" from "session exists but access token
+// has expired and needs a silent refresh".
+const setSessionCookie = () => {
+  document.cookie = `session=1; path=/; max-age=${SEVEN_DAYS}; SameSite=Lax`;
 };
 
 const clearLocalTokens = () => {
@@ -38,6 +33,7 @@ const clearLocalTokens = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   document.cookie = 'access_token=; path=/; max-age=0';
+  document.cookie = 'session=; path=/; max-age=0';
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -53,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('access_token', token);
           localStorage.setItem('refresh_token', refreshToken);
           setAccessTokenCookie(token, expiresIn);
+          setSessionCookie();
         }
         set({ token, refreshToken, user, isAuthenticated: true });
       },
@@ -80,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', token);
           setAccessTokenCookie(token, expiresIn);
+          // session cookie is already set — no need to refresh it here
         }
         set({ token });
       },

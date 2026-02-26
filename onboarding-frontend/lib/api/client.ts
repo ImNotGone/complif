@@ -35,7 +35,7 @@ const processQueue = (error: any, token: string | null = null) => {
  */
 const clearSessionAndRedirect = async () => {
   const { useAuthStore } = await import('@/lib/store/auth-store');
-  await useAuthStore.getState().logout({ skipApi: true });
+  await useAuthStore.getState().logout();
   window.location.href = '/login';
 };
 

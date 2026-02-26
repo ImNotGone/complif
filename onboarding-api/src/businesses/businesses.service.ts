@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class BusinessesService {
@@ -115,15 +116,14 @@ export class BusinessesService {
     country: string,
   ): Promise<boolean> {
     try {
-      // TODO: Call external validation microservice
-      // const response = await firstValueFrom(
-      //   this.httpService.get(`http://validator-service:3001/validate`, {
-      //     params: { taxId, country }
-      //   })
-      // );
       this.logger.debug(`Validating Tax ID ${taxId} (${country}) externally...`);
+      
+      const response = await axios.post('http://localhost:4001/tax-id/verify', {
+        country,
+        taxId,
+      });
 
-      return true;
+      return response.data;
     } catch (error) {
       this.logger.error(`Tax ID validation failed: ${error.message}`);
       throw new BadRequestException('Tax ID validation failed');

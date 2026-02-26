@@ -2,8 +2,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BusinessesService } from './businesses.service';
 import { RiskEngineService } from './risk-engine.service';
 import { PrismaService } from '../prisma.service';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { BusinessStatus, DocumentType } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+
+const mockConfigService = {
+  get: jest.fn().mockReturnValue('http://localhost:4001'),
+};
+
+import axios from 'axios';
+jest.mock('axios');
+jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
 
 const USER_ID = 'user-uuid-1';
 const BUSINESS_ID = 'business-uuid-1';
@@ -74,6 +86,7 @@ describe('BusinessesService', () => {
         BusinessesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RiskEngineService, useValue: mockRiskEngine },
+        { provide: ConfigService, useValue: mockConfigService}
       ],
     }).compile();
 
@@ -84,11 +97,34 @@ describe('BusinessesService', () => {
     const dto = { name: 'Acme Corporation', taxId: '30712345678', country: 'AR', industry: 'software' };
 
     beforeEach(() => {
+      mockedAxios.post.mockResolvedValue({ data: true });
+
       mockPrisma.business.findUnique.mockResolvedValue(null); // no duplicate
       mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
       mockRiskEngine.determineInitialStatus.mockReturnValue(BusinessStatus.PENDING);
       mockPrisma.business.create.mockResolvedValue(mockBusiness);
     });
+
+    it('calls external tax-id verification service', async () => {
+      await service.create(dto, USER_ID);
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+          'http://localhost:4001/tax-id/verify',
+          {
+            country: dto.country,
+            taxId: dto.taxId,
+          },
+        );
+    });
+
+    it('throws BadRequestException when external tax-id validation fails', async () => {
+      mockedAxios.post.mockRejectedValue(new Error('Service down'));
+
+      await expect(service.create(dto, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
 
     it('creates and returns the business', async () => {
       const result = await service.create(dto, USER_ID);

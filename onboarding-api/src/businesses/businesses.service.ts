@@ -12,6 +12,7 @@ import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
 import axios from 'axios';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class BusinessesService {
@@ -27,6 +28,7 @@ export class BusinessesService {
   constructor(
     private prisma: PrismaService,
     private riskEngine: RiskEngineService,
+    private configService: ConfigService
   ) { }
 
   async create(createBusinessDto: CreateBusinessDto, createdById: string) {
@@ -116,9 +118,15 @@ export class BusinessesService {
     country: string,
   ): Promise<boolean> {
     try {
-      this.logger.debug(`Validating Tax ID ${taxId} (${country}) externally...`);
-      
-      const response = await axios.post('http://localhost:4001/tax-id/verify', {
+      const baseUrl = this.configService.get<string>('TAX_ID_API_URL');
+      if (!baseUrl) {
+        throw new Error('TAX_ID_API_URL is not configured');
+      }
+      const url = `${baseUrl}/tax-id/verify`;
+
+      this.logger.debug(`Validating Tax ID ${taxId} (${country}) in service ${url}`);
+
+      const response = await axios.post(url, {
         country,
         taxId,
       });

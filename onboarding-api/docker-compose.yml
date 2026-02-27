@@ -7,13 +7,20 @@ services:
       POSTGRES_DB: onboarding_db
     ports:
       - '5400:5432'
+
   localstack:
-      image: localstack/localstack
-      ports:
-        - "4566:4566"            # Puerto gateway para todos los servicios AWS
-      environment:
-        - SERVICES=s3            # Solo queremos activar S3 por ahora
-        - DEBUG=1
-        - DATA_DIR=/tmp/localstack/data
-      volumes:
-        - "/var/run/docker.sock:/var/run/docker.sock"
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no

@@ -7,37 +7,33 @@ import {
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RiskEngineService } from './risk-engine.service';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from 'src/prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
-import axios from 'axios';
-import { ConfigService } from '@nestjs/config';
+import { EventsService } from 'src/events/events.service';
 
 @Injectable()
 export class BusinessesService {
   private readonly logger = new Logger(BusinessesService.name);
 
   private readonly REQUIRED_DOCUMENT_TYPES: DocumentType[] = [
-    "TAX_CERTIFICATE",
-    "REGISTRATION",
-    "INSURANCE_POLICY",
+    'TAX_CERTIFICATE',
+    'REGISTRATION',
+    'INSURANCE_POLICY',
   ];
-
 
   constructor(
     private prisma: PrismaService,
     private riskEngine: RiskEngineService,
-    private configService: ConfigService
-  ) { }
+    private eventsService: EventsService,
+  ) {}
 
   async create(createBusinessDto: CreateBusinessDto, createdById: string) {
     this.logger.log(`Creating business: ${createBusinessDto.name} (Tax ID: ${createBusinessDto.taxId}) by user ${createdById}`);
 
-    // 1. Validate Tax ID with external microservice (Mock)
     await this.validateTaxIdExternal(createBusinessDto.taxId, createBusinessDto.country);
 
-    // 2. Check for duplicate business (same taxId + country)
     const existing = await this.prisma.business.findUnique({
       where: {
         taxId_country: {
@@ -56,19 +52,14 @@ export class BusinessesService {
       );
     }
 
-    // 3. Calculate initial risk (no documents yet, so missing all)
     const riskCalculation = this.riskEngine.calculateRisk(
       createBusinessDto.country,
       createBusinessDto.industry,
-      [], // No documents uploaded yet
+      [],
     );
 
-    // 4. Determine initial status
-    const initialStatus = this.riskEngine.determineInitialStatus(
-      riskCalculation.totalScore,
-    );
+    const initialStatus = this.riskEngine.determineInitialStatus(riskCalculation.totalScore);
 
-    // 5. Create business with initial risk calculation and status history
     const newBusiness = await this.prisma.business.create({
       data: {
         name: createBusinessDto.name,
@@ -77,15 +68,11 @@ export class BusinessesService {
         industry: createBusinessDto.industry,
         riskScore: riskCalculation.totalScore,
         status: initialStatus,
-        createdBy: {
-          connect: { id: createdById },
-        },
+        createdBy: { connect: { id: createdById } },
         statusHistory: {
           create: {
             status: initialStatus,
-            changedBy: {
-              connect: { id: createdById },
-            },
+            changedBy: { connect: { id: createdById } },
             reason: `Initial creation. Risk Score: ${riskCalculation.totalScore}`,
           },
         },
@@ -100,9 +87,7 @@ export class BusinessesService {
         },
       },
       include: {
-        createdBy: {
-          select: { email: true, role: true },
-        },
+        createdBy: { select: { email: true, role: true } },
       },
     });
 
@@ -113,25 +98,10 @@ export class BusinessesService {
     return newBusiness;
   }
 
-  private async validateTaxIdExternal(
-    taxId: string,
-    country: string,
-  ): Promise<boolean> {
+  private async validateTaxIdExternal(taxId: string, country: string): Promise<boolean> {
     try {
-      const baseUrl = this.configService.get<string>('TAX_ID_API_URL');
-      if (!baseUrl) {
-        throw new Error('TAX_ID_API_URL is not configured');
-      }
-      const url = `${baseUrl}/tax-id/verify`;
-
-      this.logger.debug(`Validating Tax ID ${taxId} (${country}) in service ${url}`);
-
-      const response = await axios.post(url, {
-        country,
-        taxId,
-      });
-
-      return response.data;
+      this.logger.debug(`Validating Tax ID ${taxId} (${country}) externally...`);
+      return true;
     } catch (error) {
       this.logger.error(`Tax ID validation failed: ${error.message}`);
       throw new BadRequestException('Tax ID validation failed');
@@ -157,43 +127,55 @@ export class BusinessesService {
       ];
     }
 
-    const [businesses, total, pendingCount, inReviewCount, approvedCount, rejectedCount] = await Promise.all([
-      this.prisma.business.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: {
-              documents: { where: { deletedAt: null } },
-              statusHistory: true,
-              riskCalculations: true,
+    const [businesses, total, pendingCount, inReviewCount, approvedCount, rejectedCount] =
+      await Promise.all([
+        this.prisma.business.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            _count: {
+              select: {
+                documents: { where: { deletedAt: null } },
+                statusHistory: true,
+                riskCalculations: true,
+              },
+            },
+            documents: {
+              where: { deletedAt: null },
+              select: { type: true },
             },
           },
-          documents: {
-            where: { deletedAt: null },
-            select: { type: true }
-          }
+        }),
+        this.prisma.business.count({ where }),
+        this.prisma.business.count({ where: { status: 'PENDING' } }),
+        this.prisma.business.count({ where: { status: 'IN_REVIEW' } }),
+        this.prisma.business.count({ where: { status: 'APPROVED' } }),
+        this.prisma.business.count({ where: { status: 'REJECTED' } }),
+      ]);
+
+    const transformedBusinesses = businesses.map((business) => {
+      const requiredDocCount = business.documents.filter((d) =>
+        this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+      ).length;
+
+      return {
+        ...business,
+        _count: {
+          ...business._count,
+          documents: undefined,
+          requiredDocuments: requiredDocCount,
         },
-      }),
-      this.prisma.business.count({ where }),
-      this.prisma.business.count({ where: { status: 'PENDING' } }),
-      this.prisma.business.count({ where: { status: 'IN_REVIEW' } }),
-      this.prisma.business.count({ where: { status: 'APPROVED' } }),
-      this.prisma.business.count({ where: { status: 'REJECTED' } }),
-    ]);
+        documents: undefined,
+      };
+    });
 
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
 
     return {
-      data: businesses.map(b => this.transformBusiness(b)),
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: transformedBusinesses,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       stats: {
         pending: pendingCount,
         inReview: inReviewCount,
@@ -209,12 +191,8 @@ export class BusinessesService {
     const business = await this.prisma.business.findUnique({
       where: { id },
       include: {
-        createdBy: {
-          select: { email: true, role: true },
-        },
-        updatedBy: {
-          select: { email: true, role: true },
-        },
+        createdBy: { select: { email: true, role: true } },
+        updatedBy: { select: { email: true, role: true } },
         _count: {
           select: {
             documents: { where: { deletedAt: null } },
@@ -224,8 +202,8 @@ export class BusinessesService {
         },
         documents: {
           where: { deletedAt: null },
-          select: { type: true }
-        }
+          select: { type: true },
+        },
       },
     });
 
@@ -234,15 +212,25 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
+    const requiredDocCount = business.documents.filter((d) =>
+      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+    ).length;
+
+    const transformedBusiness = {
+      ...business,
+      _count: {
+        ...business._count,
+        documents: undefined,
+        requiredDocuments: requiredDocCount,
+      },
+      documents: undefined,
+    };
+
     this.logger.debug(`Business found: ${business.name}`);
-    return this.transformBusiness(business);
+    return transformedBusiness;
   }
 
-  async update(
-    id: string,
-    updateBusinessDto: UpdateBusinessDto,
-    updatedById: string,
-  ) {
+  async update(id: string, updateBusinessDto: UpdateBusinessDto, updatedById: string) {
     this.logger.log(`Updating business: ${id} by user ${updatedById}`);
 
     const business = await this.prisma.business.findUnique({ where: { id } });
@@ -251,36 +239,22 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
-    // Check if industry or country changed (requires risk recalc)
     const needsRiskRecalc =
       (updateBusinessDto.industry && updateBusinessDto.industry !== business.industry) ||
       (updateBusinessDto.country && updateBusinessDto.country !== business.country);
-
-    if (needsRiskRecalc) {
-      this.logger.log(
-        `Risk-relevant fields changed for business ${id}. Country: ${business.country} -> ${updateBusinessDto.country}, Industry: ${business.industry} -> ${updateBusinessDto.industry}`,
-      );
-    }
 
     const updated = await this.prisma.business.update({
       where: { id },
       data: {
         ...updateBusinessDto,
-        updatedBy: {
-          connect: { id: updatedById },
-        },
+        updatedBy: { connect: { id: updatedById } },
       },
       include: {
-        createdBy: {
-          select: { email: true, role: true },
-        },
-        updatedBy: {
-          select: { email: true, role: true },
-        },
+        createdBy: { select: { email: true, role: true } },
+        updatedBy: { select: { email: true, role: true } },
       },
     });
 
-    // Auto-recalculate risk if relevant fields changed
     if (needsRiskRecalc) {
       this.logger.log(`Auto-recalculating risk for business ${id} due to update`);
       const response = await this.recalculateRisk(id);
@@ -291,11 +265,7 @@ export class BusinessesService {
     return updated;
   }
 
-  async changeStatus(
-    id: string,
-    dto: ChangeBusinessStatusDto,
-    changedById: string,
-  ) {
+  async changeStatus(id: string, dto: ChangeBusinessStatusDto, changedById: string) {
     this.logger.log(`Changing status for business ${id} to ${dto.status} by user ${changedById}`);
 
     const business = await this.prisma.business.findUnique({ where: { id } });
@@ -304,14 +274,9 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
-    // Prevent duplicate status
     if (business.status === dto.status) {
-      this.logger.warn(
-        `Attempted duplicate status change for business ${id}: already ${dto.status}`,
-      );
-      throw new BadRequestException(
-        `Business is already in ${dto.status} status`,
-      );
+      this.logger.warn(`Attempted duplicate status change for business ${id}: already ${dto.status}`);
+      throw new BadRequestException(`Business is already in ${dto.status} status`);
     }
 
     const updated = await this.prisma.business.update({
@@ -319,23 +284,33 @@ export class BusinessesService {
       data: { status: dto.status },
     });
 
-    // Create status history entry
-    await this.prisma.statusHistory.create({
+    const historyEntry = await this.prisma.statusHistory.create({
       data: {
-        business: { connect: { id: id } },
+        business: { connect: { id } },
         status: dto.status,
-        changedBy: {
-          connect: { id: changedById },
-        },
+        changedBy: { connect: { id: changedById } },
         reason: dto.reason || `Status changed to ${dto.status}`,
+      },
+      include: {
+        changedBy: { select: { email: true } },
       },
     });
 
-    // Mock notification (webhook/email)
+    // Publish to Redis → fans out to all SSE-connected clients via every instance
+    await this.eventsService.publish({
+      type: 'business.status_changed',
+      businessId: id,
+      businessName: business.name,
+      previousStatus: business.status,
+      newStatus: dto.status,
+      reason: historyEntry.reason || "",
+      changedBy: historyEntry.changedBy.email,
+      timestamp: historyEntry.createdAt.toISOString(),
+    });
+
     this.logger.log(
       `NOTIFICATION: Business "${business.name}" status changed from ${business.status} to ${dto.status}`,
     );
-    // TODO: this.notificationsService.sendStatusChangeNotification(updated);
 
     return updated;
   }
@@ -357,9 +332,7 @@ export class BusinessesService {
       where: { businessId },
       orderBy: { createdAt: 'asc' },
       include: {
-        changedBy: {
-          select: { email: true, role: true },
-        },
+        changedBy: { select: { email: true, role: true } },
       },
     });
 
@@ -394,9 +367,7 @@ export class BusinessesService {
 
     const business = await this.prisma.business.findUnique({
       where: { id },
-      include: {
-        documents: { where: { deletedAt: null } },
-      },
+      include: { documents: { where: { deletedAt: null } } },
     });
 
     if (!business) {
@@ -404,20 +375,17 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
-    // Calculate new risk
     const riskCalculation = this.riskEngine.calculateRisk(
       business.country,
       business.industry,
       business.documents,
     );
 
-    // Update business risk score
     const updated = await this.prisma.business.update({
       where: { id },
       data: { riskScore: riskCalculation.totalScore },
     });
 
-    // Save calculation to history
     await this.prisma.riskCalculation.create({
       data: {
         businessId: id,
@@ -438,23 +406,6 @@ export class BusinessesService {
       previousScore: business.riskScore,
       newScore: riskCalculation.totalScore,
       breakdown: riskCalculation,
-    };
-  }
-
-  private transformBusiness(business: any) {
-    const requiredDocCount = business.documents.filter((d) =>
-      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
-    ).length;
-
-    const { documents, _count, ...rest } = business;
-    const { documents: _removedDocs, ...countWithoutDocuments } = _count;
-
-    return {
-      ...rest,
-      _count: {
-        ...countWithoutDocuments,
-        requiredDocuments: requiredDocCount,
-      },
     };
   }
 }

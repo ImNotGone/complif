@@ -44,6 +44,7 @@ describe('JwtRefreshStrategy', () => {
             expect(result).toEqual({
                 userId: mockUser.id,
                 email: mockUser.email,
+                role: mockUser.role,
                 tokenVersion: validPayload.version,
             });
         });

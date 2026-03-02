@@ -7,11 +7,13 @@ import {
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RiskEngineService } from './risk-engine.service';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
-import { EventsService } from 'src/events/events.service';
+import { EventsService } from '../events/events.service';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class BusinessesService {
@@ -27,6 +29,7 @@ export class BusinessesService {
     private prisma: PrismaService,
     private riskEngine: RiskEngineService,
     private eventsService: EventsService,
+    private configService: ConfigService,
   ) {}
 
   async create(createBusinessDto: CreateBusinessDto, createdById: string) {
@@ -100,8 +103,19 @@ export class BusinessesService {
 
   private async validateTaxIdExternal(taxId: string, country: string): Promise<boolean> {
     try {
-      this.logger.debug(`Validating Tax ID ${taxId} (${country}) externally...`);
-      return true;
+      const baseUrl = this.configService.get<string>('TAX_ID_API_URL');
+      if (!baseUrl) {
+        throw new Error('TAX_ID_API_URL is not configured');
+      }
+      const url = `${baseUrl}/tax-id/verify`;
+
+      this.logger.debug(`Validating Tax ID ${taxId} (${country}) in service ${url}`);
+
+      return await axios.post(url, {
+        country,
+        taxId,
+      });
+      
     } catch (error) {
       this.logger.error(`Tax ID validation failed: ${error.message}`);
       throw new BadRequestException('Tax ID validation failed');
@@ -155,26 +169,10 @@ export class BusinessesService {
         this.prisma.business.count({ where: { status: 'REJECTED' } }),
       ]);
 
-    const transformedBusinesses = businesses.map((business) => {
-      const requiredDocCount = business.documents.filter((d) =>
-        this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
-      ).length;
-
-      return {
-        ...business,
-        _count: {
-          ...business._count,
-          documents: undefined,
-          requiredDocuments: requiredDocCount,
-        },
-        documents: undefined,
-      };
-    });
-
     this.logger.log(`Retrieved ${businesses.length} businesses (total: ${total})`);
 
     return {
-      data: transformedBusinesses,
+      data: businesses.map(b => this.transformBusiness(b)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       stats: {
         pending: pendingCount,
@@ -211,23 +209,9 @@ export class BusinessesService {
       this.logger.warn(`Business not found: ${id}`);
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
-
-    const requiredDocCount = business.documents.filter((d) =>
-      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
-    ).length;
-
-    const transformedBusiness = {
-      ...business,
-      _count: {
-        ...business._count,
-        documents: undefined,
-        requiredDocuments: requiredDocCount,
-      },
-      documents: undefined,
-    };
-
+    
     this.logger.debug(`Business found: ${business.name}`);
-    return transformedBusiness;
+    return this.transformBusiness(business);
   }
 
   async update(id: string, updateBusinessDto: UpdateBusinessDto, updatedById: string) {
@@ -406,6 +390,23 @@ export class BusinessesService {
       previousScore: business.riskScore,
       newScore: riskCalculation.totalScore,
       breakdown: riskCalculation,
+    };
+  }
+
+  private transformBusiness(business: any) {
+    const requiredDocCount = business.documents.filter((d) =>
+      this.REQUIRED_DOCUMENT_TYPES.includes(d.type),
+    ).length;
+
+    const { documents, _count, ...rest } = business;
+    const { documents: _removedDocs, ...countWithoutDocuments } = _count;
+
+    return {
+      ...rest,
+      _count: {
+        ...countWithoutDocuments,
+        requiredDocuments: requiredDocCount,
+      },
     };
   }
 }

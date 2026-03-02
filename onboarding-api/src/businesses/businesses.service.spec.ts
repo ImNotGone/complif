@@ -5,14 +5,16 @@ import { PrismaService } from '../prisma.service';
 import { NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { BusinessStatus, DocumentType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import { EventsService } from '../events/events.service';
 
 const mockConfigService = {
   get: jest.fn().mockReturnValue('http://localhost:4001'),
 };
 
-import axios from 'axios';
+
 jest.mock('axios');
-jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -75,6 +77,11 @@ const mockRiskEngine = {
   shouldRequireReview: jest.fn(),
 };
 
+const mockEventsService = {
+  emit: jest.fn(),
+  publish: jest.fn(),
+};
+
 describe('BusinessesService', () => {
   let service: BusinessesService;
 
@@ -86,7 +93,8 @@ describe('BusinessesService', () => {
         BusinessesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RiskEngineService, useValue: mockRiskEngine },
-        { provide: ConfigService, useValue: mockConfigService}
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: EventsService, useValue: mockEventsService },
       ],
     }).compile();
 
@@ -109,12 +117,12 @@ describe('BusinessesService', () => {
       await service.create(dto, USER_ID);
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
-          'http://localhost:4001/tax-id/verify',
-          {
-            country: dto.country,
-            taxId: dto.taxId,
-          },
-        );
+        'http://localhost:4001/tax-id/verify',
+        {
+          country: dto.country,
+          taxId: dto.taxId,
+        },
+      );
     });
 
     it('throws BadRequestException when external tax-id validation fails', async () => {
@@ -371,7 +379,13 @@ describe('BusinessesService', () => {
     beforeEach(() => {
       mockPrisma.business.findUnique.mockResolvedValue(mockBusiness); // status: PENDING
       mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.IN_REVIEW });
-      mockPrisma.statusHistory.create.mockResolvedValue({});
+      mockPrisma.statusHistory.create.mockResolvedValue({
+        id: 'history-id',
+        status: BusinessStatus.IN_REVIEW,
+        reason: dto.reason,
+        createdAt: new Date(),
+        changedBy: { email: 'admin@test.com' },
+      });
     });
 
     it('returns the updated business with new status', async () => {

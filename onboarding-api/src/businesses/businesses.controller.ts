@@ -36,7 +36,7 @@ import { RecalculateRiskResponseDto } from './dto/recalculate-risk-response.dto'
 export class BusinessesController {
   constructor(private readonly businessesService: BusinessesService) {}
 
-  @AuthenticatedOnly()
+  @AdminOnly()
   @Post()
   @ApiOperation({ summary: 'Create a business and calculate initial risk score' })
   @ApiCreatedResponse({

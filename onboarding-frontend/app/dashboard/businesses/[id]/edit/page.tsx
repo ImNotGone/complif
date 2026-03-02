@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { businessesApi } from '@/lib/api/services';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,14 +14,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Building2 } from 'lucide-react';
+import { ArrowLeft, Building2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { COUNTRIES } from '@/lib/constants/countries';
 import { INDUSTRIES } from '@/lib/constants/industries';
 
-export default function NewBusinessPage() {
+export default function EditBusinessPage() {
+  const params = useParams();
   const router = useRouter();
+  const businessId = params.id as string;
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === 'ADMIN';
+
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,14 +37,41 @@ export default function NewBusinessPage() {
     industry: '',
   });
 
+  useEffect(() => {
+    if (!isAdmin) {
+      toast.error('You do not have permission to edit this business');
+      router.push(`/dashboard/businesses/${businessId}`);
+      return;
+    }
+
+    const fetchBusiness = async () => {
+      try {
+        const business = await businessesApi.getById(businessId);
+        setFormData({
+          name: business.name,
+          taxId: business.taxId,
+          country: business.country,
+          industry: business.industry,
+        });
+      } catch (error) {
+        console.error('Failed to fetch business:', error);
+        toast.error('Failed to load business data');
+        router.push('/dashboard');
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchBusiness();
+  }, [businessId, isAdmin, router]);
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validation
+
     if (!formData.name || !formData.taxId || !formData.country || !formData.industry) {
       toast.error('Please fill in all fields');
       return;
@@ -50,16 +84,24 @@ export default function NewBusinessPage() {
 
     setLoading(true);
     try {
-      const business = await businessesApi.create(formData);
-      toast.success('Business created successfully!');
-      router.push(`/dashboard/businesses/${business.id}`);
+      await businessesApi.update(businessId, formData);
+      toast.success('Business updated successfully!');
+      router.push(`/dashboard/businesses/${businessId}`);
     } catch (error: any) {
-      console.error('Failed to create business:', error);
-      toast.error(error.response?.data?.message || 'Failed to create business');
+      console.error('Failed to update business:', error);
+      toast.error(error.response?.data?.message || 'Failed to update business');
     } finally {
       setLoading(false);
     }
   };
+
+  if (fetching) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -68,13 +110,13 @@ export default function NewBusinessPage() {
         <Button
           variant="ghost"
           size="icon-lg"
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.push(`/dashboard/businesses/${businessId}`)}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Create New Business</h2>
-          <p className="text-slate-600">Register a new business for onboarding</p>
+          <h2 className="text-3xl font-bold text-slate-900">Edit Business</h2>
+          <p className="text-slate-600">Update business information</p>
         </div>
       </div>
 
@@ -86,7 +128,7 @@ export default function NewBusinessPage() {
             Business Information
           </CardTitle>
           <CardDescription>
-            Enter the basic details of the business. Risk assessment will be calculated automatically.
+            Update the business details. Note: Changing country or industry may affect the risk score.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -179,21 +221,14 @@ export default function NewBusinessPage() {
               </p>
             </div>
 
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-900 font-medium mb-1">
-                Automatic Risk Assessment
+            {/* Warning Box */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-900 font-medium mb-1">
+                Risk Score May Change
               </p>
-              <p className="text-xs text-blue-700">
-                Once created, the system will automatically calculate a risk score based on:
-              </p>
-              <ul className="text-xs text-blue-700 mt-2 space-y-1 list-disc list-inside">
-                <li>Country risk (high-risk jurisdictions)</li>
-                <li>Industry risk (regulated sectors)</li>
-                <li>Document completeness (initially incomplete)</li>
-              </ul>
-              <p className="text-xs text-blue-700 mt-2">
-                Businesses with risk score &gt; 70 will automatically be marked for manual review.
+              <p className="text-xs text-amber-700">
+                Updating the country or industry may affect the risk score. The risk will be 
+                automatically recalculated after saving.
               </p>
             </div>
 
@@ -202,7 +237,7 @@ export default function NewBusinessPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(`/dashboard/businesses/${businessId}`)}
                 disabled={loading}
                 className="flex-1"
               >
@@ -213,23 +248,10 @@ export default function NewBusinessPage() {
                 disabled={loading}
                 className="flex-1"
               >
-                {loading ? 'Creating...' : 'Create Business'}
+                {loading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Help Text */}
-      <Card className="bg-slate-50">
-        <CardContent className="pt-6">
-          <h3 className="font-semibold text-sm mb-2">Next Steps</h3>
-          <ol className="text-sm text-slate-600 space-y-1 list-decimal list-inside">
-            <li>Business will be created with status "Pending" or "In Review"</li>
-            <li>Upload required documents (Tax Certificate, Registration, Insurance)</li>
-            <li>Risk score will update automatically as documents are added</li>
-            <li>Admin can review and approve/reject the application</li>
-          </ol>
         </CardContent>
       </Card>
     </div>

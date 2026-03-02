@@ -20,6 +20,7 @@ import {
   Download,
   Trash2,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBusinessStore } from '@/lib/store/business-store';
@@ -188,6 +189,13 @@ export default function BusinessDetailPage() {
 
         {isAdmin && (
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/dashboard/businesses/${businessId}/edit`)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
             <Button
               variant="outline"
               onClick={() => setUploadDialogOpen(true)}

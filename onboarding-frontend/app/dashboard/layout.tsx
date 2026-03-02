@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Building2, LogOut } from 'lucide-react';
+import { BusinessEventsListener } from '@/components/business-events-listener';
 
 export default function DashboardLayout({
   children,
@@ -28,13 +29,13 @@ export default function DashboardLayout({
     router.replace('/login');
   };
 
-  const getInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase();
-  };
+  const getInitials = (email: string) => email.substring(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* Global SSE listener — renders nothing, just maintains the connection */}
+      <BusinessEventsListener />
+
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -82,7 +83,6 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
     </div>
   );

@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessesApi } from '@/lib/api/services';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { useBusinessStore } from '@/lib/store/business-store';
 import { COUNTRIES } from '@/lib/constants/countries';
-import type { Business, BusinessStatus, FindBusinessesQuery } from '@/lib/types/api';
+import type { BusinessStatus, FindBusinessesQuery } from '@/lib/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,13 @@ const RISK_COLORS = {
 export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+
+  // Read businesses from the shared store — the BusinessEventsListener calls
+  // applyStatusChange on this store when an SSE event arrives, so the table
+  // rows update instantly without a refetch.
+  const businesses = useBusinessStore((s) => s.businesses);
+  const setBusinesses = useBusinessStore((s) => s.setBusinesses);
+
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -56,13 +63,29 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<BusinessStatus | 'ALL'>('ALL');
   const [countryFilter, setCountryFilter] = useState<string>('ALL');
 
-  // Stats from API
+  // Stats — derived from the store so they stay in sync with SSE patches
   const [stats, setStats] = useState({
     pending: 0,
     inReview: 0,
     approved: 0,
     rejected: 0,
   });
+
+  // Recalculate stats whenever the businesses list changes (fetch OR SSE patch)
+  useEffect(() => {
+    if (businesses.length === 0) return;
+    setStats({
+      pending: businesses.filter((b) => b.status === 'PENDING').length,
+      inReview: businesses.filter((b) => b.status === 'IN_REVIEW').length,
+      approved: businesses.filter((b) => b.status === 'APPROVED').length,
+      rejected: businesses.filter((b) => b.status === 'REJECTED').length,
+    });
+  }, [businesses]);
+
+  // Clear the store when leaving the dashboard so stale data doesn't linger
+  useEffect(() => {
+    return () => setBusinesses([]);
+  }, []);
 
   const fetchBusinesses = async () => {
     setLoading(true);
@@ -77,19 +100,9 @@ export default function DashboardPage() {
       if (countryFilter !== 'ALL') query.country = countryFilter;
 
       const response = await businessesApi.list(query);
-      setBusinesses(response.data);
+      setBusinesses(response.data); // writes into the store — table re-renders from there
       setTotalPages(response.meta.totalPages);
       setTotal(response.meta.total);
-      
-      // Set stats from API response
-      if (response.stats) {
-        setStats({
-          pending: response.stats.pending,
-          inReview: response.stats.inReview,
-          approved: response.stats.approved,
-          rejected: response.stats.rejected,
-        });
-      }
     } catch (error) {
       console.error('Failed to fetch businesses:', error);
       toast.error('Failed to load businesses');

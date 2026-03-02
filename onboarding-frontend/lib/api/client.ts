@@ -11,35 +11,40 @@ export const apiClient = axios.create({
 });
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
 
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve(token);
-  });
+  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)));
   failedQueue = [];
 };
 
-/**
- * Clears all auth state and redirects to login.
- *
- * Imported lazily to avoid a circular dependency:
- *   auth-store → authApi (services) → apiClient (client) → auth-store
- *
- * Calling logout() on the store is the single source of truth for clearing
- * tokens — it handles localStorage, the cookie, and setting isAuthenticated:false
- * in Zustand all at once. Without this, the root page.tsx reads a stale
- * isAuthenticated:true from the persisted store and immediately redirects back
- * to /dashboard, creating a redirect loop.
- */
-const clearSessionAndRedirect = async () => {
-  const { useAuthStore } = await import('@/lib/store/auth-store');
-  await useAuthStore.getState().logout();
+// Clears all local auth state and redirects to login.
+// Does NOT call authApi.logout() — we end up here precisely when tokens are
+// dead, so hitting the network again would just fail and slow things down.
+// Clears both cookies so the middleware doesn't see a stale session.
+const clearSessionAndRedirect = () => {
+  // Persist auth logs to sessionStorage before page unload so they survive
+  // the redirect and can be read on the login page for debugging.
+  try {
+    const logs = (window as any).__authLogs__ || [];
+    sessionStorage.setItem('__authLogs__', JSON.stringify(logs));
+  } catch {}
+
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  document.cookie = 'access_token=; path=/; max-age=0';
+  document.cookie = 'session=; path=/; max-age=0';
+  useAuthStore.setState({
+    token: null,
+    refreshToken: null,
+    user: null,
+    isAuthenticated: false,
+  });
   window.location.href = '/login';
 };
 
-// Request interceptor — attach access token from localStorage
+// Request interceptor — reads token fresh from localStorage on every request
+// so retries after a refresh automatically pick up the new token.
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -51,25 +56,27 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Response interceptor — handle 401s with silent token refresh.
+// Response interceptor — silent token refresh on 401.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const status = error.response?.status;
+    const url = originalRequest?.url;
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+   
+    if (status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
 
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
-      })
-        .then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return apiClient(originalRequest);
-        })
-        .catch((err) => Promise.reject(err));
+      }).then((token) => {
+        // Same explicit header stamp as the primary retry path.
+        originalRequest.headers['Authorization'] = `Bearer ${token}`;
+        return apiClient(originalRequest);
+      });
     }
 
     originalRequest._retry = true;
@@ -79,36 +86,47 @@ apiClient.interceptors.response.use(
 
     if (!refreshToken) {
       isRefreshing = false;
-      processQueue(error, null);
-      await clearSessionAndRedirect();
+      processQueue(error);
+      clearSessionAndRedirect();
       return Promise.reject(error);
     }
 
     try {
-      const response = await axios.post(
+      const { data } = await axios.post(
         `${API_BASE_URL}/auth/refresh`,
         {},
         { headers: { Authorization: `Bearer ${refreshToken}` } },
       );
 
-      const { access_token, expires_in } = response.data;
+      const { access_token, expires_in } = data;
 
-      // Keep localStorage, cookie, and Zustand store all in sync
       localStorage.setItem('access_token', access_token);
       document.cookie = `access_token=${access_token}; path=/; max-age=${expires_in}; SameSite=Lax`;
-      useAuthStore.getState().setToken(access_token, expires_in);
-
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      originalRequest.headers.Authorization = `Bearer ${access_token}`;
 
+      useAuthStore.getState().setToken(access_token, expires_in);
       processQueue(null, access_token);
-      return apiClient(originalRequest);
-    } catch (refreshError) {
-      processQueue(refreshError, null);
-      await clearSessionAndRedirect();
-      return Promise.reject(refreshError);
-    } finally {
+
+      if (typeof originalRequest.data === 'string') {
+        try {
+          originalRequest.data = JSON.parse(originalRequest.data);
+        } catch {
+          // Not JSON (e.g. FormData) — leave as-is
+        }
+      }
+
+      // Explicitly stamp the new token on the config so it's never stale,
+      // regardless of how Axios merges headers on retry.
+      originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+
+      const retryResponse = await apiClient(originalRequest);
       isRefreshing = false;
+      return retryResponse;
+    } catch (refreshError: any) {
+      processQueue(refreshError);
+      isRefreshing = false;
+      clearSessionAndRedirect();
+      return Promise.reject(refreshError);
     }
   },
 );

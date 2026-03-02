@@ -22,6 +22,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useBusinessStore } from '@/lib/store/business-store';
 import { format } from 'date-fns';
 import { ChangeStatusDialog } from '@/components/change-status-dialog';
 import { UploadDocumentDialog } from '@/components/upload-document-dialog';
@@ -54,7 +55,11 @@ export default function BusinessDetailPage() {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === 'ADMIN';
 
-  const [business, setBusiness] = useState<Business | null>(null);
+  const setActiveBusiness = useBusinessStore((s) => s.setActiveBusiness);
+  const setPendingLocalChange = useBusinessStore((s) => s.setPendingLocalChange);
+  // Read business from the store so SSE patches are reflected immediately
+  const business = useBusinessStore((s) => s.activeBusiness);
+
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
   const [riskHistory, setRiskHistory] = useState<RiskCalculation[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -74,7 +79,7 @@ export default function BusinessDetailPage() {
         documentsApi.list(businessId),
       ]);
 
-      setBusiness(businessData);
+      setActiveBusiness(businessData);
       setStatusHistory(statusData);
       setRiskHistory(riskData);
       setDocuments(docsData);
@@ -88,15 +93,20 @@ export default function BusinessDetailPage() {
 
   useEffect(() => {
     fetchBusinessDetails();
+    // Clear the store when leaving the detail page so stale data
+    // doesn't linger if the user navigates to a different business.
+    return () => setActiveBusiness(null);
   }, [businessId]);
 
   const handleStatusChange = async (status: BusinessStatus, reason?: string) => {
     try {
+      setPendingLocalChange({ businessId, newStatus: status });
       await businessesApi.changeStatus(businessId, { status, reason });
       toast.success('Status updated successfully');
       fetchBusinessDetails();
       setStatusDialogOpen(false);
     } catch (error: any) {
+      setPendingLocalChange(null);
       toast.error(error.response?.data?.message || 'Failed to update status');
     }
   };

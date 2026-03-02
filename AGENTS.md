@@ -918,7 +918,7 @@ docker ps                  # Check Docker containers
 ## Future Enhancements (TODO)
 
 ### High Priority
-- [ ] Real-time notifications via WebSockets
+- [x] Real-time notifications via SSE + Redis pub/sub (EventsModule)
 - [ ] Email notifications on status changes
 - [ ] Tax ID validation microservice integration
 - [ ] Rate limiting on public endpoints
@@ -972,6 +972,38 @@ onboarding-portal/
 └── questions.md            # Design decisions
 ```
 
+## Real-Time Events (SSE)
+
+**Stack:** NestJS `EventsModule` → Redis pub/sub → SSE → `useBusinessEvents` hook
+
+**Flow:**
+1. Admin changes status → `BusinessesService.changeStatus()` publishes a `StatusChangedEvent` to Redis channel `app:events`
+2. All NestJS instances subscribed to the channel receive it and push it to their connected SSE clients
+3. Frontend `useBusinessEvents` hook receives the event and calls `onStatusChanged`
+4. `BusinessEventsListener` component checks `pendingLocalChange` — if the event is the echo of the current user's own action, it patches the store silently and skips the toast. Otherwise it shows a toast and patches the store.
+
+**Token handling for SSE:**
+The browser `EventSource` API cannot set custom headers, so the access token is
+passed as `?token=<jwt>` in the URL. The `events/stream` endpoint is `@Public()`
+and manually validates the token. On SSE connection error, the hook attempts a
+silent token refresh via `authApi.refresh()` before reconnecting — this prevents
+the infinite 401 reconnect loop that occurs when the access token expires while
+the SSE connection is open.
+
+**Business store (`business-store.ts`):**
+- `businesses`: array of Business objects currently in the dashboard list
+- `activeBusiness`: the single business open in the detail page
+- `pendingLocalChange`: `{ businessId, newStatus }` stamped before the current user fires a status change, cleared when the SSE echo arrives
+- `applyStatusChange(id, prevStatus, newStatus)`: patches both `businesses` and `activeBusiness` in one atomic update, also recalculates stats counters
+
+Pages must call `setBusinesses()` / `setActiveBusiness()` after fetching and clear on unmount:
+```typescript
+useEffect(() => {
+  fetchData().then(data => setActiveBusiness(data));
+  return () => setActiveBusiness(null); // clear on unmount
+}, [id]);
+```
+
 ---
 
 ## Contact & Support
@@ -984,6 +1016,6 @@ For questions or issues:
 
 ---
 
-**Last Updated:** February 2026
-**Version:** 1.0.0
+**Last Updated:** March 2026
+**Version:** 1.1.0
 **Maintainer:** Development Team

@@ -1,0 +1,131 @@
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: complif
+      POSTGRES_PASSWORD: complif
+      POSTGRES_DB: onboarding_db
+    ports:
+      - "5400:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U complif -d onboarding_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    restart: unless-stopped
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-1
+      - DATA_DIR=/var/lib/localstack
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:4566/_localstack/health | grep -q '\"s3\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+  # ── Services ────────────────────────────────────────────────────────────────
+
+  tax-id-api:
+    build:
+      context: ./tax-id-verification-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4001/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  onboarding-api:
+    build:
+      context: ./onboarding-api
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://complif:complif@postgres:5432/onboarding_db
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://complif:complif@postgres:5432/onboarding_db
+      REDIS_URL: redis://redis:6379
+      TAX_ID_API_URL: http://tax-id-api:4001
+      JWT_SECRET: secreto_de_complif
+      JWT_REFRESH_SECRET: secreto_de_refresco_de_complif
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_S3_BUCKET_NAME: onboarding-documents
+      AWS_ENDPOINT_URL: http://localstack:4566
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      tax-id-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/docs-json || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  onboarding-frontend:
+    build:
+      context: ./onboarding-frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the Next.js bundle at build time
+        NEXT_PUBLIC_API_URL: http://localhost:3000
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      # Runtime env for server-side Next.js code (not the baked NEXT_PUBLIC_ one)
+      API_URL: http://onboarding-api:3000
+    depends_on:
+      onboarding-api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  localstack_data:

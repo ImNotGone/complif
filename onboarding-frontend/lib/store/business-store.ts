@@ -51,14 +51,13 @@ export const useBusinessStore = create<BusinessStoreState>((set) => ({
           ? { ...state.activeBusiness, status: newStatus }
           : state.activeBusiness;
 
-      const isInList = state.businesses.some((b) => b.id === businessId);
-      const stats = isInList
-        ? {
-            ...state.stats,
-            [STATUS_STAT_KEY[previousStatus]]: Math.max(0, state.stats[STATUS_STAT_KEY[previousStatus]] - 1),
-            [STATUS_STAT_KEY[newStatus]]: state.stats[STATUS_STAT_KEY[newStatus]] + 1,
-          }
-        : state.stats;
+      // Always update global stats regardless of whether the business is on
+      // the current page — SSE events can arrive for any business.
+      const stats = {
+        ...state.stats,
+        [STATUS_STAT_KEY[previousStatus]]: Math.max(0, state.stats[STATUS_STAT_KEY[previousStatus]] - 1),
+        [STATUS_STAT_KEY[newStatus]]: state.stats[STATUS_STAT_KEY[newStatus]] + 1,
+      };
 
       return { businesses, activeBusiness, stats };
     }),

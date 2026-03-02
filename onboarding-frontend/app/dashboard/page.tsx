@@ -63,24 +63,16 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<BusinessStatus | 'ALL'>('ALL');
   const [countryFilter, setCountryFilter] = useState<string>('ALL');
 
-  // Stats — derived from the store so they stay in sync with SSE patches
-  const [stats, setStats] = useState({
-    pending: 0,
-    inReview: 0,
-    approved: 0,
-    rejected: 0,
-  });
+  // Global stats — come from the API response (all businesses, ignoring filters).
+  // Kept in sync with SSE patches via the business store.
+  const storeStats = useBusinessStore((s) => s.stats);
+  const setStats = useBusinessStore((s) => s.setStats);
+  const [globalStats, setGlobalStats] = useState({ pending: 0, inReview: 0, approved: 0, rejected: 0 });
 
-  // Recalculate stats whenever the businesses list changes (fetch OR SSE patch)
+  // Mirror store stats into local state so the cards update on SSE patches too.
   useEffect(() => {
-    if (businesses.length === 0) return;
-    setStats({
-      pending: businesses.filter((b) => b.status === 'PENDING').length,
-      inReview: businesses.filter((b) => b.status === 'IN_REVIEW').length,
-      approved: businesses.filter((b) => b.status === 'APPROVED').length,
-      rejected: businesses.filter((b) => b.status === 'REJECTED').length,
-    });
-  }, [businesses]);
+    setGlobalStats(storeStats);
+  }, [storeStats]);
 
   // Clear the store when leaving the dashboard so stale data doesn't linger
   useEffect(() => {
@@ -100,9 +92,13 @@ export default function DashboardPage() {
       if (countryFilter !== 'ALL') query.country = countryFilter;
 
       const response = await businessesApi.list(query);
-      setBusinesses(response.data); // writes into the store — table re-renders from there
+      setBusinesses(response.data);
       setTotalPages(response.meta.totalPages);
       setTotal(response.meta.total);
+      // Stats come from the API and reflect all businesses regardless of filters.
+      if (response.stats) {
+        setStats(response.stats);
+      }
     } catch (error) {
       console.error('Failed to fetch businesses:', error);
       toast.error('Failed to load businesses');
@@ -144,62 +140,52 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Pending
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Pending</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
+            <div className="text-2xl font-bold">{globalStats.pending}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              In Review
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">In Review</CardTitle>
             <AlertCircle className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.inReview}</div>
+            <div className="text-2xl font-bold">{globalStats.inReview}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Approved
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Approved</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
+            <div className="text-2xl font-bold">{globalStats.approved}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Rejected
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Rejected</CardTitle>
             <CircleX className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.rejected}</div>
+            <div className="text-2xl font-bold">{globalStats.rejected}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Total
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Total</CardTitle>
             <TrendingUp className="h-4 w-4 text-slate-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats.pending + stats.inReview + stats.approved + stats.rejected}
+              {globalStats.pending + globalStats.inReview + globalStats.approved + globalStats.rejected}
             </div>
           </CardContent>
         </Card>
@@ -209,7 +195,40 @@ export default function DashboardPage() {
       <Card className='gap-4'>
         <CardHeader className='px-0 pb-0'>
           <CardContent>
-          <CardTitle>Businesses</CardTitle>
+            <div className="flex items-center gap-2 flex-wrap justify-between">
+              <CardTitle>Businesses</CardTitle>
+              <div className='flex gap-2'>
+                {!loading && (() => {
+                const counts = businesses.reduce(
+                  (acc, b) => { acc[b.status] = (acc[b.status] || 0) + 1; return acc; },
+                  {} as Record<string, number>,
+                );
+                return (
+                  <>
+                    {counts['PENDING'] > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800">
+                        {counts['PENDING']} pending
+                      </span>
+                    )}
+                    {counts['IN_REVIEW'] > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+                        {counts['IN_REVIEW']} in review
+                      </span>
+                    )}
+                    {counts['APPROVED'] > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+                        {counts['APPROVED']} approved
+                      </span>
+                    )}
+                    {counts['REJECTED'] > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+                        {counts['REJECTED']} rejected
+                      </span>
+                    )}
+                  </>
+                );
+              })()}</div>
+            </div>
 
             <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4">
 

@@ -181,7 +181,7 @@ onboarding-frontend/
 **Location:** `onboarding-api/src/businesses/risk-engine.service.ts`
 
 **Algorithm (0-100 score):**
-- **Country Risk:** 40 points if high-risk (PA, VG, KY, CH, LI, MC)
+- **Country Risk:** 50 points if high-risk (PA, VG, KY, CH, LI, MC)
 - **Industry Risk:** 30 points if high-risk (construction, security, casino, money_exchange, gambling, cryptocurrency)
 - **Document Risk:** 20 points if ANY required document missing
 
@@ -468,7 +468,7 @@ curl -X POST http://localhost:3000/businesses \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"name":"Test","taxId":"12345678","country":"XY","industry":"software"}'
   
-# Check that riskScore includes country risk (40 points)
+# Check that riskScore includes country risk (50 points)
 ```
 
 ---

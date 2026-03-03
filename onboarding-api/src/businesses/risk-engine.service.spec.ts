@@ -28,16 +28,16 @@ describe('RiskEngineService', () => {
   });
 
   describe('calculateRisk — country risk', () => {
-    it('adds 40 points for a high-risk country (PA)', () => {
+    it('adds 50 points for a high-risk country (PA)', () => {
       const result = service.calculateRisk('PA', 'software', ALL_DOCS);
-      expect(result.countryRisk).toBe(40);
+      expect(result.countryRisk).toBe(50);
     });
 
-    it('adds 40 points for all known high-risk countries', () => {
+    it('adds 50 points for all known high-risk countries', () => {
       const highRisk = ['PA', 'VG', 'KY', 'CH', 'LI', 'MC'];
       highRisk.forEach((country) => {
         const result = service.calculateRisk(country, 'software', ALL_DOCS);
-        expect(result.countryRisk).toBe(40);
+        expect(result.countryRisk).toBe(50);
       });
     });
 
@@ -176,9 +176,9 @@ describe('RiskEngineService', () => {
       expect(result.totalScore).toBe(30);
     });
 
-    it('returns 40 for high-risk country, low-risk industry, complete documents', () => {
+    it('returns 50 for high-risk country, low-risk industry, complete documents', () => {
       const result = service.calculateRisk('PA', 'software', ALL_DOCS);
-      expect(result.totalScore).toBe(40);
+      expect(result.totalScore).toBe(50);
     });
 
     it('returns 50 for high-risk industry + no documents (30 + 20)', () => {
@@ -186,23 +186,23 @@ describe('RiskEngineService', () => {
       expect(result.totalScore).toBe(50);
     });
 
-    it('returns 60 for high-risk country + no documents (40 + 20)', () => {
+    it('returns 70 for high-risk country + no documents (50 + 20)', () => {
       const result = service.calculateRisk('PA', 'software', []);
-      expect(result.totalScore).toBe(60);
-    });
-
-    it('returns 70 for high-risk country + high-risk industry + all documents (40 + 30)', () => {
-      const result = service.calculateRisk('PA', 'casino', ALL_DOCS);
       expect(result.totalScore).toBe(70);
     });
 
-    it('returns 90 for high-risk country + high-risk industry + no documents (40 + 30 + 20)', () => {
+    it('returns 80 for high-risk country + high-risk industry + all documents (50 + 30)', () => {
+      const result = service.calculateRisk('PA', 'casino', ALL_DOCS);
+      expect(result.totalScore).toBe(80);
+    });
+
+    it('returns 100 for high-risk country + high-risk industry + no documents (50 + 30 + 20)', () => {
       const result = service.calculateRisk('PA', 'casino', []);
-      expect(result.totalScore).toBe(90);
+      expect(result.totalScore).toBe(100);
     });
 
     it('caps total score at 100', () => {
-      // This is a hypothetical — with current weights max is 90, but the cap logic should exist
+      // This is a hypothetical — with current weights max is 100, but the cap logic should exist
       jest.spyOn(service as any, 'calculateCountryRisk').mockReturnValue(60);
       jest.spyOn(service as any, 'calculateIndustryRisk').mockReturnValue(60);
       const result = service.calculateRisk('PA', 'casino', []);

@@ -34,7 +34,7 @@ const mockRiskResponse = {
   ...mockBusiness,
   previousScore: 20,
   newScore: 60,
-  breakdown: { totalScore: 60, countryRisk: 40, industryRisk: 0, documentRisk: 20, metadata: {} },
+  breakdown: { totalScore: 70, countryRisk: 50, industryRisk: 0, documentRisk: 20, metadata: {} },
 };
 
 const mockStatusHistory = [

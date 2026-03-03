@@ -661,7 +661,7 @@ describe('BusinessesService', () => {
 
   describe('getRiskHistory', () => {
     const mockRiskHistory = [
-      { id: 'r1', businessId: BUSINESS_ID, totalScore: 60, countryRisk: 40, industryRisk: 0, documentRisk: 20, metadata: {}, createdAt: new Date() },
+      { id: 'r1', businessId: BUSINESS_ID, totalScore: 70, countryRisk: 50, industryRisk: 0, documentRisk: 20, metadata: {}, createdAt: new Date() },
       { id: 'r2', businessId: BUSINESS_ID, totalScore: 20, countryRisk: 0, industryRisk: 0, documentRisk: 20, metadata: {}, createdAt: new Date() },
     ];
 
@@ -689,19 +689,19 @@ describe('BusinessesService', () => {
       riskScore: 20,
       documents: [{ type: DocumentType.TAX_CERTIFICATE, deletedAt: null }],
     };
-    const newRiskResult = { ...mockRiskResult, totalScore: 60, countryRisk: 40 };
+    const newRiskResult = { ...mockRiskResult, totalScore: 70, countryRisk: 50 };
 
     beforeEach(() => {
       mockPrisma.business.findUnique.mockResolvedValue(businessWithDocs);
       mockRiskEngine.calculateRisk.mockReturnValue(newRiskResult);
-      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, riskScore: 60 });
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, riskScore: 70 });
       mockPrisma.riskCalculation.create.mockResolvedValue({});
     });
 
     it('returns previousScore, newScore, and breakdown', async () => {
       const result = await service.recalculateRisk(BUSINESS_ID);
       expect(result.previousScore).toBe(20);
-      expect(result.newScore).toBe(60);
+      expect(result.newScore).toBe(70);
       expect(result.breakdown).toEqual(newRiskResult);
     });
 

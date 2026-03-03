@@ -41,7 +41,7 @@ export class RiskEngineService {
     'cryptocurrency',
   ];
 
-  private readonly COUNTRY_RISK = 40;
+  private readonly COUNTRY_RISK = 50;
   private readonly INDUSTRY_RISK = 30;
   private readonly MISSING_DOCUMENTS_RISK = 20;
 
@@ -66,7 +66,7 @@ export class RiskEngineService {
     
     let totalScore = 0;
 
-    // 1. Country Risk (0-40 points)
+    // 1. Country Risk (0-50 points)
     const countryRisk = this.calculateCountryRisk(country);
     totalScore += countryRisk;
     if (countryRisk > 0) {

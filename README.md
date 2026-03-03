@@ -178,7 +178,7 @@ The system automatically calculates a risk score (0-100) based on:
 # Backend
 cd onboarding-api
 npm install
-cp .env.example .env  # Configure DATABASE_URL
+cp .env.example .env  # Configure Variables propperly
 npx prisma migrate dev
 npx prisma db seed
 npm run start:dev
@@ -271,7 +271,3 @@ docker system prune -af        # Clean up
 docker compose build --no-cache
 docker compose up -d
 ```
-
-## License
-
-MIT

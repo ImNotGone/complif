@@ -71,6 +71,9 @@ export class RecalculateRiskResponseDto {
   @ApiProperty({ example: 60 })
   newScore: number;
 
+  @ApiProperty({ example: 'Industry changed from software to casino (risk level changed)', required: false })
+  reason?: string;
+
   @ApiProperty({ type: RiskBreakdownDto })
   breakdown: RiskBreakdownDto;
 }

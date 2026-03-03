@@ -24,6 +24,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { AdminOnly } from '..//auth/decorators/admin.decorator';
 import { AuthenticatedOnly } from '..//auth/decorators/auth.decorator';
 import { ChangeBusinessStatusDto } from './dto/change-business-status.dto';
+import { RecalculateRiskDto } from './dto/recalculate-risk.dto';
 import { StatusHistoryResponseDto } from './dto/status-history-response.dto';
 import { BusinessStatus } from '@prisma/client';
 import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
@@ -152,7 +153,10 @@ export class BusinessesController {
     type: RecalculateRiskResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Business not found' })
-  recalculateRisk(@Param('id') id: string) {
-    return this.businessesService.recalculateRisk(id);
+  recalculateRisk(
+    @Param('id') id: string,
+    @Body() dto: RecalculateRiskDto,
+  ) {
+    return this.businessesService.recalculateRisk(id, dto.reason);
   }
 }

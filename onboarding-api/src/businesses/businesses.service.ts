@@ -414,6 +414,7 @@ export class BusinessesService {
       ...updated,
       previousScore: business.riskScore,
       newScore: riskCalculation.totalScore,
+      reason: reason || 'Manual recalculation',
       breakdown: riskCalculation,
     };
   }

@@ -114,6 +114,7 @@ export interface RiskCalculation {
   countryRisk: number;
   industryRisk: number;
   documentRisk: number;
+  reason?: string;
   metadata: RiskMetadata;
   createdAt: string;
 }

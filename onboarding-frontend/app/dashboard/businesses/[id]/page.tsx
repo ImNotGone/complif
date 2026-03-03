@@ -440,6 +440,11 @@ export default function BusinessDetailPage() {
                           Country: {calc.countryRisk} | Industry: {calc.industryRisk} | Docs: {calc.documentRisk}
                         </div>
                       </div>
+                      {calc.reason && (
+                        <p className="text-sm text-slate-600 mt-1">
+                          {calc.reason}
+                        </p>
+                      )}
                       <p className="text-xs text-slate-500 mt-1">
                         {format(new Date(calc.createdAt), 'PPp')}
                       </p>
@@ -479,71 +484,70 @@ export default function BusinessDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {documents.map((doc) => {
-  const isExpanded = expandedDocId === doc.id;
+                    const isExpanded = expandedDocId === doc.id;
 
-  return (
-    <div key={doc.id} className="border rounded-lg overflow-hidden">
-      {/* Clickable Header */}
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition"
-        onClick={() => toggleDocument(doc.id)}
-      >
-        <div className="flex items-center gap-3">
-          <FileText className="h-8 w-8 text-slate-400" />
-          <div>
-            <p className="font-medium">{doc.filename}</p>
-            <p className="text-sm text-slate-600">
-              {doc.type.replace('_', ' ')}
-            </p>
-            <p className="text-xs text-slate-500">
-              Uploaded {format(new Date(doc.createdAt), 'PPp')} by{' '}
-              {doc.uploadedBy.email}
-            </p>
-          </div>
-        </div>
+                    return (
+                      <div key={doc.id} className="border rounded-lg overflow-hidden">
+                        {/* Clickable Header */}
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition"
+                          onClick={() => toggleDocument(doc.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-8 w-8 text-slate-400" />
+                            <div>
+                              <p className="font-medium">{doc.filename}</p>
+                              <p className="text-sm text-slate-600">
+                                {doc.type.replace('_', ' ')}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Uploaded {format(new Date(doc.createdAt), 'PPp')} by{' '}
+                                {doc.uploadedBy.email}
+                              </p>
+                            </div>
+                          </div>
 
-        <div
-          className="flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()} // prevent expanding when clicking buttons
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(doc.url, '_blank')}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()} // prevent expanding when clicking buttons
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(doc.url, '_blank')}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
 
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDocumentDelete(doc.id)}
-            >
-              <Trash2 className="h-4 w-4 text-red-600" />
-            </Button>
-          )}
-          <ChevronDown
-  className={`h-4 w-4 transition-transform ${
-    isExpanded ? 'rotate-180' : ''
-  }`}
-/>
+                            {isAdmin && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDocumentDelete(doc.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            )}
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''
+                                }`}
+                            />
 
-        </div>
-      </div>
+                          </div>
+                        </div>
 
-      {/* Expandable Viewer */}
-      {isExpanded && (
-        <div className="border-t bg-slate-50 p-4">
-          <iframe
-            src={doc.url}
-            className="w-full h-[600px] rounded-md border"
-          />
-        </div>
-      )}
-    </div>
-  );
-})}
+                        {/* Expandable Viewer */}
+                        {isExpanded && (
+                          <div className="border-t bg-slate-50 p-4">
+                            <iframe
+                              src={doc.url}
+                              className="w-full h-[600px] rounded-md border"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                 </div>
               )}

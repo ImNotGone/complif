@@ -215,24 +215,26 @@ describe('BusinessesController', () => {
   });
 
   describe('recalculateRisk', () => {
+    const mockDto = { reason: 'Manual review' };
+
     it('returns the recalculation result with previousScore, newScore, and breakdown', async () => {
       mockBusinessesService.recalculateRisk.mockResolvedValue(mockRiskResponse);
-      const result = await controller.recalculateRisk(BUSINESS_ID);
+      const result = await controller.recalculateRisk(BUSINESS_ID, mockDto);
       expect(result).toEqual(mockRiskResponse);
       expect(result).toHaveProperty('previousScore');
       expect(result).toHaveProperty('newScore');
       expect(result).toHaveProperty('breakdown');
     });
 
-    it('passes the business id to the service', async () => {
+    it('passes the business id and reason to the service', async () => {
       mockBusinessesService.recalculateRisk.mockResolvedValue(mockRiskResponse);
-      await controller.recalculateRisk(BUSINESS_ID);
-      expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+      await controller.recalculateRisk(BUSINESS_ID, mockDto);
+      expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, mockDto.reason);
     });
 
     it('propagates NotFoundException for unknown businesses', async () => {
       mockBusinessesService.recalculateRisk.mockRejectedValue(new NotFoundException());
-      await expect(controller.recalculateRisk('ghost-id')).rejects.toThrow(NotFoundException);
+      await expect(controller.recalculateRisk('ghost-id', mockDto)).rejects.toThrow(NotFoundException);
     });
   });
 });

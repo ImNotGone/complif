@@ -1,0 +1,537 @@
+{
+  "info": {
+    "name": "Complif Onboarding API",
+    "description": "API for business onboarding with risk assessment, document management, and real-time events.\n\n## Authentication\nThis API uses JWT authentication with access and refresh tokens:\n- **Access Token**: Valid for 15 minutes, use in `Authorization: Bearer <token>` header\n- **Refresh Token**: Valid for 7 days, use in `/auth/refresh` endpoint\n\n## Test Users\n- **Admin**: admin@complif.com / complif_admin\n- **Viewer**: viewer@complif.com / complif_viewer\n\n## Base URL\n`http://localhost:3000`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "businessId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "documentId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh access token if expired",
+          "const now = Date.now();",
+          "const expiresAt = pm.environment.get('tokenExpiresAt');",
+          "if (expiresAt && parseInt(expiresAt) < now) {",
+          "  console.log('Access token expired, refreshing...');",
+          "  // Will need manual refresh if needed",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@complif.com\",\n  \"password\": \"complif_admin\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.access_token);",
+                  "  pm.environment.set('refreshToken', jsonData.refresh_token);",
+                  "  pm.environment.set('tokenExpiresAt', Date.now() + (jsonData.expires_in * 1000));",
+                  "}",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "  pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has access_token', () => {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.expect(jsonData).to.have.property('access_token');",
+                  "  pm.expect(jsonData).to.have.property('refresh_token');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.access_token);",
+                  "  pm.environment.set('tokenExpiresAt', Date.now() + (jsonData.expires_in * 1000));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.environment.set('accessToken', '');",
+                  "  pm.environment.set('refreshToken', '');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Businesses",
+      "item": [
+        {
+          "name": "List Businesses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Businesses - Filter by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?status=PENDING",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Businesses - Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?search=Acme",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Acme"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Businesses - Filter by Country",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?country=AR",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "country",
+                  "value": "AR"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Business",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/businesses",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"taxId\": \"30-71234567-8\",\n  \"country\": \"AR\",\n  \"industry\": \"software\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('businessId', jsonData.id);",
+                  "}",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "  pm.expect(pm.response.code).to.equal(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has riskScore', () => {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.expect(jsonData).to.have.property('riskScore');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Business by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Business",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation Updated\",\n  \"industry\": \"retail\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Change Business Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "status"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"reason\": \"All documents verified\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Status History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/status-history",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "status-history"]
+            }
+          }
+        },
+        {
+          "name": "Get Risk History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/risk-history",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "risk-history"]
+            }
+          }
+        },
+        {
+          "name": "Recalculate Risk",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/risk/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "risk", "calculate"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Manual review requested\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "documents"]
+            }
+          }
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "documents"]
+            },
+            "header": [
+              {
+                "key": "",
+                "value": "",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "type",
+                  "value": "TAX_CERTIFICATE",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const jsonData = pm.response.json();",
+                  "  pm.environment.set('documentId', jsonData.id);",
+                  "}",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "  pm.expect(pm.response.code).to.equal(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Document",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/documents/{{documentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "documents", "{{documentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/businesses/{{businessId}}/documents/{{documentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses", "{{businessId}}", "documents", "{{documentId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "SSE Stream",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/events/stream?token={{accessToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "stream"],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

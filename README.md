@@ -163,6 +163,7 @@ The system automatically calculates a risk score (0-100) based on:
 | AWS_S3_BUCKET_NAME | S3 bucket name | onboarding-documents |
 | AWS_ENDPOINT_URL | S3 endpoint (LocalStack) | http://localstack:4566 |
 | TAX_ID_API_URL | Tax validation service | http://tax-id-api:4001 |
+| LOG_LEVEL | Logging level (debug, info, warn, error) | info |
 
 ### Frontend (onboarding-frontend)
 
@@ -217,9 +218,34 @@ docker compose logs -f onboarding-api
 docker compose logs -f postgres
 ```
 
+### Structured Logging
+
+The backend uses Winston for structured JSON logging:
+
+- **Production**: JSON format to console and files
+- **Development**: Pretty-printed colored output
+- **Log files**: `logs/error.log`, `logs/combined.log`, `logs/exceptions.log`
+
+Set `LOG_LEVEL=debug` for verbose logging.
+
 ## API Documentation
 
 Once the API is running, visit http://localhost:3000/api/docs for the interactive Swagger documentation.
+
+### Postman Collection
+
+A complete Postman collection is available in `postman/collection.json`.
+
+**Features:**
+- Pre-configured requests for all endpoints
+- Auto-save tokens after login
+- Auto-refresh tokens
+- Environment variables for business/document IDs
+
+**Import:**
+1. Open Postman → Import → File
+2. Select `postman/collection.json`
+3. Set `baseUrl` to `http://localhost:3000`
 
 ### Key Endpoints
 
@@ -270,4 +296,24 @@ docker compose down -v        # Remove volumes
 docker system prune -af        # Clean up
 docker compose build --no-cache
 docker compose up -d
+```
+
+### Tests fail after logger changes
+
+If tests fail after modifying the logger, make sure the logger is compatible with NestJS testing. The logger should have:
+- `log()`, `error()`, `warn()`, `debug()`, `verbose()` methods
+
+### Prisma migration issues
+
+If you get `Error: P3009` about failed migrations:
+
+```bash
+# Check migration status
+docker compose exec postgres psql -U complif -d onboarding_db -c "SELECT * FROM _prisma_migrations;"
+
+# Mark failed migration as rolled back
+docker compose run --rm onboarding-api npx prisma migrate resolve --rolled-back <migration_name>
+
+# Or delete the failed migration record
+docker compose exec postgres psql -U complif -d onboarding_db -c "DELETE FROM _prisma_migrations WHERE migration_name = '<name>';"
 ```

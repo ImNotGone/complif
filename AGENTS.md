@@ -1006,6 +1006,25 @@ useEffect(() => {
 
 ---
 
+## Testing & Development
+
+### Postman Collection
+
+A Postman collection is available at `postman/collection.json` with all API endpoints pre-configured.
+
+**Features:**
+- Environment variables for authentication tokens
+- Auto-save tokens after login
+- Script to auto-refresh tokens
+- Pre-request tests to verify responses
+
+**Import:**
+1. Open Postman
+2. Import → `postman/collection.json`
+3. Set `baseUrl` variable to `http://localhost:3000`
+
+---
+
 ## Contact & Support
 
 For questions or issues:

@@ -1,12 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentType } from '@prisma/client';
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadBucketCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createLogger } from '../logging/logger';
 
 @Injectable()
 export class S3Service {
-  private readonly logger = new Logger(S3Service.name);
+  private readonly logger = createLogger(S3Service.name);
   private s3Client: S3Client;
   private readonly bucketName: string;
 

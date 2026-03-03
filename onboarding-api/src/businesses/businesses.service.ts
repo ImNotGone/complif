@@ -1,6 +1,5 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -13,11 +12,12 @@ import { FindBusinessesQueryDto } from './dto/find-business-query.dto';
 import { DocumentType } from '@prisma/client';
 import { EventsService } from '../events/events.service';
 import { ConfigService } from '@nestjs/config';
+import { createLogger } from '../logging/logger';
 import axios from 'axios';
 
 @Injectable()
 export class BusinessesService {
-  private readonly logger = new Logger(BusinessesService.name);
+  private readonly logger = createLogger(BusinessesService.name);
 
   private readonly REQUIRED_DOCUMENT_TYPES: DocumentType[] = [
     'TAX_CERTIFICATE',

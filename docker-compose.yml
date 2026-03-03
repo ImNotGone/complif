@@ -91,6 +91,7 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       AWS_S3_BUCKET_NAME: onboarding-documents
       AWS_ENDPOINT_URL: http://localstack:4566
+      LOG_LEVEL: info
     depends_on:
       postgres:
         condition: service_healthy

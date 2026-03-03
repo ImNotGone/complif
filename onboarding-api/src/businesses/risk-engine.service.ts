@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { BusinessStatus, DocumentType } from '@prisma/client';
+import { createLogger } from '../logging/logger';
 
 export interface RiskCalculationResult {
   totalScore: number;
@@ -18,7 +19,7 @@ type InitialBusinessStatus = 'PENDING' | 'IN_REVIEW';
 
 @Injectable()
 export class RiskEngineService {
-  private readonly logger = new Logger(RiskEngineService.name);
+  private readonly logger = createLogger(RiskEngineService.name);
 
   // High-risk countries (tax havens, no fiscal agreements)
   private readonly HIGH_RISK_COUNTRIES = [

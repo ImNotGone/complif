@@ -1,6 +1,5 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -8,10 +7,11 @@ import { PrismaService } from '../prisma.service';
 import { DocumentType } from '@prisma/client';
 import { S3Service } from './s3.service';
 import { BusinessesService } from '../businesses/businesses.service';
+import { createLogger } from '../logging/logger';
 
 @Injectable()
 export class DocumentsService {
-  private readonly logger = new Logger(DocumentsService.name);
+  private readonly logger = createLogger(DocumentsService.name);
 
   // Only these 3 are required and limited to 1 per type
   private readonly REQUIRED_DOCUMENT_TYPES: DocumentType[] = [

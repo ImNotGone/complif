@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { BusinessStatus } from '@prisma/client';
+import { createLogger } from '../logging/logger';
 
 export interface StatusChangedEvent {
   type: 'business.status_changed';
@@ -21,7 +22,7 @@ const CHANNEL = 'app:events';
 
 @Injectable()
 export class EventsService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(EventsService.name);
+  private readonly logger = createLogger(EventsService.name);
 
   // Separate clients are required: a subscribed Redis client cannot issue
   // regular commands, so publishing and subscribing need their own connections.

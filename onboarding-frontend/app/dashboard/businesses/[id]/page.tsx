@@ -27,6 +27,14 @@ import { useBusinessStore } from '@/lib/store/business-store';
 import { format } from 'date-fns';
 import { ChangeStatusDialog } from '@/components/change-status-dialog';
 import { UploadDocumentDialog } from '@/components/upload-document-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -69,6 +77,9 @@ export default function BusinessDetailPage() {
 
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
   const fetchBusinessDetails = async () => {
     setLoading(true);
@@ -115,18 +126,27 @@ export default function BusinessDetailPage() {
   const handleDocumentUpload = async () => {
     await fetchBusinessDetails();
     setUploadDialogOpen(false);
+    setActiveTab('documents');
     toast.success('Document uploaded successfully');
   };
 
-  const handleDocumentDelete = async (documentId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return;
+  const handleDocumentDeleteClick = (documentId: string) => {
+    setDocumentToDelete(documentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDocumentDelete = async () => {
+    if (!documentToDelete) return;
 
     try {
-      await documentsApi.delete(businessId, documentId);
+      await documentsApi.delete(businessId, documentToDelete);
       toast.success('Document deleted');
       fetchBusinessDetails();
     } catch (error) {
       toast.error('Failed to delete document');
+    } finally {
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
@@ -270,7 +290,7 @@ export default function BusinessDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="timeline">Status Timeline</TabsTrigger>
@@ -466,6 +486,7 @@ export default function BusinessDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Documents</CardTitle>
+                  <div className='p-1'></div>
                   <CardDescription>Uploaded business documents</CardDescription>
                 </div>
                 {isAdmin && (
@@ -523,7 +544,7 @@ export default function BusinessDetailPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDocumentDelete(doc.id)}
+                                onClick={() => handleDocumentDeleteClick(doc.id)}
                               >
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
@@ -571,6 +592,24 @@ export default function BusinessDetailPage() {
             businessId={businessId}
             onSuccess={handleDocumentUpload}
           />
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Document</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this document? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDocumentDelete}>
+                  Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

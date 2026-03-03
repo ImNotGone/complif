@@ -86,6 +86,7 @@ export class BusinessesService {
             industryRisk: riskCalculation.industryRisk,
             documentRisk: riskCalculation.documentRisk,
             metadata: riskCalculation.metadata,
+            reason: 'Business created',
           },
         },
       },
@@ -223,9 +224,31 @@ export class BusinessesService {
       throw new NotFoundException(`Business with ID ${id} not found`);
     }
 
-    const needsRiskRecalc =
-      (updateBusinessDto.industry && updateBusinessDto.industry !== business.industry) ||
-      (updateBusinessDto.country && updateBusinessDto.country !== business.country);
+    const reasons: string[] = [];
+
+    // Check if industry changed and if the risk level changed
+    if (updateBusinessDto.industry && updateBusinessDto.industry !== business.industry) {
+      const wasHighRisk = this.riskEngine.isHighRiskIndustry(business.industry);
+      const isNowHighRisk = this.riskEngine.isHighRiskIndustry(updateBusinessDto.industry);
+      
+      if (wasHighRisk !== isNowHighRisk) {
+        const reason = `Industry changed from ${business.industry} to ${updateBusinessDto.industry} (risk level changed)`;
+        reasons.push(reason);
+        this.logger.log(`Industry risk level changed for business ${id}: ${business.industry} -> ${updateBusinessDto.industry}`);
+      }
+    }
+
+    // Check if country changed and if the risk level changed
+    if (updateBusinessDto.country && updateBusinessDto.country !== business.country) {
+      const wasHighRisk = this.riskEngine.isHighRiskCountry(business.country);
+      const isNowHighRisk = this.riskEngine.isHighRiskCountry(updateBusinessDto.country);
+      
+      if (wasHighRisk !== isNowHighRisk) {
+        const reason = `Country changed from ${business.country} to ${updateBusinessDto.country} (risk level changed)`;
+        reasons.push(reason);
+        this.logger.log(`Country risk level changed for business ${id}: ${business.country} -> ${updateBusinessDto.country}`);
+      }
+    }
 
     const updated = await this.prisma.business.update({
       where: { id },
@@ -239,9 +262,10 @@ export class BusinessesService {
       },
     });
 
-    if (needsRiskRecalc) {
-      this.logger.log(`Auto-recalculating risk for business ${id} due to update`);
-      const response = await this.recalculateRisk(id);
+    if (reasons.length > 0) {
+      const riskRecalcReason = reasons.join('; ');
+      this.logger.log(`Auto-recalculating risk for business ${id}: ${riskRecalcReason}`);
+      const response = await this.recalculateRisk(id, riskRecalcReason);
       updated.riskScore = response.newScore;
     }
 
@@ -346,7 +370,7 @@ export class BusinessesService {
     return history;
   }
 
-  async recalculateRisk(id: string) {
+  async recalculateRisk(id: string, reason?: string) {
     this.logger.log(`Recalculating risk for business: ${id}`);
 
     const business = await this.prisma.business.findUnique({
@@ -378,6 +402,7 @@ export class BusinessesService {
         industryRisk: riskCalculation.industryRisk,
         documentRisk: riskCalculation.documentRisk,
         metadata: riskCalculation.metadata,
+        reason: reason || 'Manual recalculation',
       },
     });
 

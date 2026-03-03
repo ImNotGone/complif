@@ -183,4 +183,18 @@ export class RiskEngineService {
     }
     return requiresReview;
   }
+
+  /**
+   * Check if a country is high risk
+   */
+  isHighRiskCountry(country: string): boolean {
+    return this.HIGH_RISK_COUNTRIES.includes(country.toUpperCase());
+  }
+
+  /**
+   * Check if an industry is high risk
+   */
+  isHighRiskIndustry(industry: string): boolean {
+    return this.HIGH_RISK_INDUSTRIES.includes(industry.toLowerCase());
+  }
 }

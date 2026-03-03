@@ -188,19 +188,19 @@ describe('DocumentsService', () => {
     describe('risk recalculation on upload', () => {
       it('recalculates risk after uploading a required document (TAX_CERTIFICATE)', async () => {
         await service.uploadDocument(BUSINESS_ID, DocumentType.TAX_CERTIFICATE, pdfFile, USER_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document uploaded: TAX_CERTIFICATE');
       });
 
       it('recalculates risk after uploading REGISTRATION', async () => {
         mockPrisma.document.create.mockResolvedValue({ ...mockDbDocument, type: DocumentType.REGISTRATION });
         await service.uploadDocument(BUSINESS_ID, DocumentType.REGISTRATION, pdfFile, USER_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document uploaded: REGISTRATION');
       });
 
       it('recalculates risk after uploading INSURANCE_POLICY', async () => {
         mockPrisma.document.create.mockResolvedValue({ ...mockDbDocument, type: DocumentType.INSURANCE_POLICY });
         await service.uploadDocument(BUSINESS_ID, DocumentType.INSURANCE_POLICY, pdfFile, USER_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document uploaded: INSURANCE_POLICY');
       });
 
       it('does NOT recalculate risk after uploading OTHER (not a required type)', async () => {
@@ -351,19 +351,19 @@ describe('DocumentsService', () => {
       it('recalculates risk when a required document (TAX_CERTIFICATE) is deleted', async () => {
         mockPrisma.document.findFirst.mockResolvedValue({ ...mockDbDocument, type: DocumentType.TAX_CERTIFICATE });
         await service.deleteDocument(BUSINESS_ID, DOCUMENT_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document deleted: TAX_CERTIFICATE');
       });
 
       it('recalculates risk when REGISTRATION is deleted', async () => {
         mockPrisma.document.findFirst.mockResolvedValue({ ...mockDbDocument, type: DocumentType.REGISTRATION });
         await service.deleteDocument(BUSINESS_ID, DOCUMENT_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document deleted: REGISTRATION');
       });
 
       it('recalculates risk when INSURANCE_POLICY is deleted', async () => {
         mockPrisma.document.findFirst.mockResolvedValue({ ...mockDbDocument, type: DocumentType.INSURANCE_POLICY });
         await service.deleteDocument(BUSINESS_ID, DOCUMENT_ID);
-        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID);
+        expect(mockBusinessesService.recalculateRisk).toHaveBeenCalledWith(BUSINESS_ID, 'Required document deleted: INSURANCE_POLICY');
       });
 
       it('does NOT recalculate risk when an OTHER document is deleted', async () => {

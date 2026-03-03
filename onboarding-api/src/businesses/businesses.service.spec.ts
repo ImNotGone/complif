@@ -75,6 +75,8 @@ const mockRiskEngine = {
   calculateRisk: jest.fn(),
   determineInitialStatus: jest.fn(),
   shouldRequireReview: jest.fn(),
+  isHighRiskCountry: jest.fn(),
+  isHighRiskIndustry: jest.fn(),
 };
 
 const mockEventsService = {
@@ -87,6 +89,21 @@ describe('BusinessesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Reset mock implementations to return false by default
+    mockRiskEngine.isHighRiskCountry.mockReset();
+    mockRiskEngine.isHighRiskIndustry.mockReset();
+    mockRiskEngine.isHighRiskCountry.mockImplementation(() => false);
+    mockRiskEngine.isHighRiskIndustry.mockImplementation(() => false);
+    // Reset prisma mocks
+    mockPrisma.business.findUnique.mockReset();
+    mockPrisma.business.findMany.mockReset();
+    mockPrisma.business.create.mockReset();
+    mockPrisma.business.update.mockReset();
+    mockPrisma.business.count.mockReset();
+    mockPrisma.statusHistory.findMany.mockReset();
+    mockPrisma.statusHistory.create.mockReset();
+    mockPrisma.riskCalculation.findMany.mockReset();
+    mockPrisma.riskCalculation.create.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -192,6 +209,7 @@ describe('BusinessesService', () => {
       const createCall = mockPrisma.business.create.mock.calls[0][0];
       expect(createCall.data.riskCalculations.create).toBeDefined();
       expect(createCall.data.riskCalculations.create.totalScore).toBe(mockRiskResult.totalScore);
+      expect(createCall.data.riskCalculations.create.reason).toBe('Business created');
     });
   });
 
@@ -329,10 +347,27 @@ describe('BusinessesService', () => {
       expect(mockRiskEngine.calculateRisk).not.toHaveBeenCalled();
     });
 
-    it('recalculates risk when country changes', async () => {
+    it('does not recalculate risk when country changes from AR to BR (both non-high-risk)', async () => {
+      mockRiskEngine.isHighRiskCountry.mockReturnValueOnce(false).mockReturnValueOnce(false);
       mockPrisma.business.findUnique
-        .mockResolvedValueOnce(mockBusiness) // first call in update()
-        .mockResolvedValueOnce({ ...mockBusiness, documents: [] }); // call inside recalculateRisk()
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, country: 'BR' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { country: 'BR' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).not.toHaveBeenCalled();
+    });
+
+    it('recalculates risk when country changes from non-high-risk to high-risk', async () => {
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValueOnce(false) // old country AR is not high-risk
+        .mockReturnValueOnce(true); // new country PA is high-risk
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
       mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
       mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, country: 'PA' });
       mockPrisma.riskCalculation.create.mockResolvedValue({});
@@ -342,7 +377,42 @@ describe('BusinessesService', () => {
       expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
     });
 
-    it('recalculates risk when industry changes', async () => {
+    it('recalculates risk when country changes from high-risk to non-high-risk', async () => {
+      // Start with a high-risk country (PA), change to non-high-risk (AR)
+      const highRiskBusiness = { ...mockBusiness, country: 'PA' };
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(highRiskBusiness)
+        .mockResolvedValueOnce({ ...highRiskBusiness, documents: [] });
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValueOnce(true) // old country PA is high-risk
+        .mockReturnValueOnce(false); // new country AR is not high-risk
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...highRiskBusiness, country: 'AR' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { country: 'AR' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
+    });
+
+    it('does not recalculate risk when industry changes from software to retail (both non-high-risk)', async () => {
+      mockRiskEngine.isHighRiskIndustry.mockReturnValueOnce(false).mockReturnValueOnce(false);
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, industry: 'retail' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { industry: 'retail' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).not.toHaveBeenCalled();
+    });
+
+    it('recalculates risk when industry changes from non-high-risk to high-risk', async () => {
+      mockRiskEngine.isHighRiskIndustry
+        .mockReturnValueOnce(false) // old industry software is not high-risk
+        .mockReturnValueOnce(true); // new industry casino is high-risk
       mockPrisma.business.findUnique
         .mockResolvedValueOnce(mockBusiness)
         .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
@@ -353,6 +423,142 @@ describe('BusinessesService', () => {
       await service.update(BUSINESS_ID, { industry: 'casino' }, USER_ID);
 
       expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
+    });
+
+    it('recalculates risk when industry changes from high-risk to non-high-risk', async () => {
+      // Start with a high-risk industry (casino), change to non-high-risk (software)
+      const highRiskIndustryBusiness = { ...mockBusiness, industry: 'casino' };
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(highRiskIndustryBusiness)
+        .mockResolvedValueOnce({ ...highRiskIndustryBusiness, documents: [] });
+      mockRiskEngine.isHighRiskIndustry
+        .mockReturnValueOnce(true) // old industry casino is high-risk
+        .mockReturnValueOnce(false); // new industry software is not high-risk
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...highRiskIndustryBusiness, industry: 'software' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { industry: 'software' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
+    });
+
+    it('recalculates risk when both country and industry change and at least one changes risk level', async () => {
+      mockRiskEngine.isHighRiskCountry.mockReturnValueOnce(false).mockReturnValueOnce(true);
+      mockRiskEngine.isHighRiskIndustry.mockReturnValueOnce(false).mockReturnValueOnce(false);
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, country: 'PA', industry: 'retail' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { country: 'PA', industry: 'retail' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
+    });
+
+    it('recalculates risk when both country and industry change and both change risk level', async () => {
+      // Industry: software (not high-risk) -> casino (high-risk) = risk level changes
+      // Country: AR (not high-risk) -> PA (high-risk) = risk level changes
+      const updatedBusiness = { ...mockBusiness, industry: 'casino', country: 'PA' };
+      mockRiskEngine.isHighRiskIndustry
+        .mockReturnValueOnce(false) // old: software not high-risk
+        .mockReturnValueOnce(true); // new: casino is high-risk
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValueOnce(false) // old: AR not high-risk
+        .mockReturnValueOnce(true); // new: PA is high-risk
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue(updatedBusiness);
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { industry: 'casino', country: 'PA' }, USER_ID);
+
+      expect(mockRiskEngine.calculateRisk).toHaveBeenCalled();
+    });
+
+    it('passes combined reason when both country and industry risk levels change', async () => {
+      const updatedBusiness = { ...mockBusiness, industry: 'casino', country: 'PA' };
+      mockRiskEngine.isHighRiskIndustry
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue(updatedBusiness);
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { industry: 'casino', country: 'PA' }, USER_ID);
+
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: expect.stringContaining('Industry changed'),
+          }),
+        }),
+      );
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: expect.stringContaining('Country changed'),
+          }),
+        }),
+      );
+    });
+
+    it('passes reason to recalculateRisk when country risk level changes', async () => {
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, country: 'PA' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { country: 'PA' }, USER_ID);
+
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: expect.stringContaining('Country changed'),
+          }),
+        }),
+      );
+    });
+
+    it('passes reason to recalculateRisk when industry risk level changes', async () => {
+      // Mock both industry and country to ensure the industry check is the one that triggers recalculation
+      mockRiskEngine.isHighRiskIndustry
+        .mockReturnValueOnce(false) // old industry software is not high-risk
+        .mockReturnValueOnce(true); // new industry casino is high-risk
+      mockRiskEngine.isHighRiskCountry
+        .mockReturnValue(false) // country stays the same (not high-risk)
+        .mockReturnValue(false); 
+      mockPrisma.business.findUnique
+        .mockResolvedValueOnce(mockBusiness)
+        .mockResolvedValueOnce({ ...mockBusiness, documents: [] });
+      mockRiskEngine.calculateRisk.mockReturnValue(mockRiskResult);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, industry: 'casino' });
+      mockPrisma.riskCalculation.create.mockResolvedValue({});
+
+      await service.update(BUSINESS_ID, { industry: 'casino' }, USER_ID);
+
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: expect.stringContaining('Industry changed'),
+          }),
+        }),
+      );
     });
 
     it('does not recalculate risk when country/industry are provided but unchanged', async () => {
@@ -528,6 +734,29 @@ describe('BusinessesService', () => {
           data: expect.objectContaining({
             businessId: BUSINESS_ID,
             totalScore: newRiskResult.totalScore,
+          }),
+        }),
+      );
+    });
+
+    it('saves the reason to risk history when provided', async () => {
+      const reason = 'Test reason for recalculation';
+      await service.recalculateRisk(BUSINESS_ID, reason);
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: reason,
+          }),
+        }),
+      );
+    });
+
+    it('uses default reason when not provided', async () => {
+      await service.recalculateRisk(BUSINESS_ID);
+      expect(mockPrisma.riskCalculation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reason: 'Manual recalculation',
           }),
         }),
       );

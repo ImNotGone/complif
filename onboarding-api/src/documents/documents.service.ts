@@ -104,13 +104,14 @@ export class DocumentsService {
 
     // 7. Always recalculate if a required document was uploaded
     if (this.REQUIRED_DOCUMENT_TYPES.includes(type)) {
+      const reason = `Required document uploaded: ${type}`;
       this.logger.log(
         `Required document uploaded. Recalculating risk for business ${businessId}`,
       );
-      await this.businessesService.recalculateRisk(businessId);
+      await this.businessesService.recalculateRisk(businessId, reason);
     } else {
       this.logger.debug(
-        `Skipping risk recalculation for business ${businessId}: uploaded document is not \'required\'`,
+        `Skipping risk recalculation for business ${businessId}: uploaded document is not 'required'`,
       );
     }
 
@@ -213,13 +214,14 @@ export class DocumentsService {
 
     // Always recalculate if a required document was deleted
     if (this.REQUIRED_DOCUMENT_TYPES.includes(document.type)) {
+      const reason = `Required document deleted: ${document.type}`;
       this.logger.log(
         `Required document deleted. Recalculating risk for business ${businessId}`,
       );
-      await this.businessesService.recalculateRisk(businessId);
+      await this.businessesService.recalculateRisk(businessId, reason);
     } else {
       this.logger.debug(
-        `Skipping risk recalculation for business ${businessId}: deleted document is not \'required\'`,
+        `Skipping risk recalculation for business ${businessId}: deleted document is not 'required'`,
       );
     }
 

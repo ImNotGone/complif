@@ -245,4 +245,48 @@ describe('RiskEngineService', () => {
       expect(service.shouldRequireReview(71)).toBe(true);
     });
   });
+
+  describe('isHighRiskCountry', () => {
+    it('returns true for high-risk countries', () => {
+      expect(service.isHighRiskCountry('PA')).toBe(true);
+      expect(service.isHighRiskCountry('VG')).toBe(true);
+      expect(service.isHighRiskCountry('KY')).toBe(true);
+      expect(service.isHighRiskCountry('CH')).toBe(true);
+      expect(service.isHighRiskCountry('LI')).toBe(true);
+      expect(service.isHighRiskCountry('MC')).toBe(true);
+    });
+
+    it('returns false for low-risk countries', () => {
+      expect(service.isHighRiskCountry('AR')).toBe(false);
+      expect(service.isHighRiskCountry('BR')).toBe(false);
+      expect(service.isHighRiskCountry('US')).toBe(false);
+    });
+
+    it('is case-insensitive', () => {
+      expect(service.isHighRiskCountry('pa')).toBe(true);
+      expect(service.isHighRiskCountry('Pa')).toBe(true);
+    });
+  });
+
+  describe('isHighRiskIndustry', () => {
+    it('returns true for high-risk industries', () => {
+      expect(service.isHighRiskIndustry('construction')).toBe(true);
+      expect(service.isHighRiskIndustry('security')).toBe(true);
+      expect(service.isHighRiskIndustry('casino')).toBe(true);
+      expect(service.isHighRiskIndustry('money_exchange')).toBe(true);
+      expect(service.isHighRiskIndustry('gambling')).toBe(true);
+      expect(service.isHighRiskIndustry('cryptocurrency')).toBe(true);
+    });
+
+    it('returns false for low-risk industries', () => {
+      expect(service.isHighRiskIndustry('software')).toBe(false);
+      expect(service.isHighRiskIndustry('retail')).toBe(false);
+      expect(service.isHighRiskIndustry('insurance')).toBe(false);
+    });
+
+    it('is case-insensitive', () => {
+      expect(service.isHighRiskIndustry('CASINO')).toBe(true);
+      expect(service.isHighRiskIndustry('Casino')).toBe(true);
+    });
+  });
 });

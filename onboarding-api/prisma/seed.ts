@@ -155,6 +155,7 @@ async function main() {
                 industryRisk: riskDetails.industryRisk,
                 documentRisk: riskDetails.documentRisk,
                 metadata: riskDetails.metadata,
+                reason: 'Business created',
                 createdAt: new Date(b.createdAt)
             }
         }

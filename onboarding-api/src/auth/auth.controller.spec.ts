@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UnauthorizedException } from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
+import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 
 const mockLoginResponse = {
   access_token: 'access-token',
@@ -44,7 +45,10 @@ describe('AuthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [{ provide: AuthService, useValue: mockAuthService }],
-    }).compile();
+    })
+      .overrideGuard(LoginRateLimitGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
   });

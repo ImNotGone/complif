@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,27 +16,40 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
 
     try {
       const { access_token, refresh_token, expires_in } = await authApi.login({ email, password });
 
-      // Temporarily set the access token so the /auth/me request is authenticated
       localStorage.setItem('access_token', access_token);
 
       const user = await authApi.getCurrentUser();
 
-      // Persist both tokens + user in the store; expires_in drives the cookie lifetime
       login(access_token, refresh_token, expires_in, user);
 
-      toast.success('Login successful!');
       router.replace('/dashboard');
-    } catch (error: any) {
-      console.error('Login failed:', error);
-      toast.error(error.response?.data?.message || 'Invalid credentials');
+    } catch (err: unknown) {
+      const status = err && typeof err === 'object' && 'response' in err 
+        ? (err.response as { status?: number })?.status 
+        : 0;
+      const data = err && typeof err === 'object' && 'response' in err 
+        ? err.response as { data?: { message?: string; retryAfter?: number } }
+        : null;
+
+      if (status === 429) {
+        const minutes = Math.ceil((data?.data?.retryAfter || 300) / 60);
+        setError(`Too many login attempts. Please try again in ${minutes} minute(s).`);
+      } else if (status === 401) {
+        setError('Invalid email or password.');
+        setPassword('')
+      } else {
+        setError(data?.data?.message || 'An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -51,6 +64,12 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -60,6 +79,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -71,6 +91,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

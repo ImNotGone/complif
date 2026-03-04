@@ -8,6 +8,8 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PrismaModule } from 'src/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
+import { RedisProvider } from 'src/redis/redis.provider';
 
 @Module({
   imports: [
@@ -21,7 +23,9 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthService,
     JwtAuthStrategy,
     JwtAuthGuard,
-    JwtRefreshStrategy
+    JwtRefreshStrategy,
+    LoginRateLimitGuard,
+    RedisProvider,
   ],
   exports: [AuthService],
 })

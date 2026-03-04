@@ -20,6 +20,7 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
+import { RateLimit } from './decorators/rate-limit.decorator';
 import { AuthenticatedOnly } from './decorators/auth.decorator';
 import { RefreshTokenOnly } from './decorators/refresh.decorator';
 
@@ -32,9 +33,11 @@ export class AuthController {
   // POST /auth/login  — public
   // ---------------------------------------------------------------------------
   @Public()
+  @RateLimit()
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password, returns access and refresh tokens' })
   @ApiResponse({ status: 201, description: 'Login successful', type: LoginResponseDto })
+  @ApiResponse({ status: 429, description: 'Too many login attempts — rate limit exceeded' })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);

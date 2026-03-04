@@ -64,8 +64,11 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const url = originalRequest?.url;
 
-   
-    if (status !== 401 || originalRequest._retry) {
+    // Don't try to refresh or redirect on auth endpoints when not authenticated
+    // These should return the error as-is so the caller can handle it
+    const isAuthEndpoint = url === '/auth/login' || url === '/auth/refresh';
+
+    if (status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+// StatusHistory is now managed in the business store for real-time SSE updates
 import { useParams, useRouter } from 'next/navigation';
 import { businessesApi, documentsApi } from '@/lib/api/services';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -66,10 +67,10 @@ export default function BusinessDetailPage() {
 
   const setActiveBusiness = useBusinessStore((s) => s.setActiveBusiness);
   const setPendingLocalChange = useBusinessStore((s) => s.setPendingLocalChange);
-  // Read business from the store so SSE patches are reflected immediately
+  const setActiveStatusHistory = useBusinessStore((s) => s.setActiveStatusHistory);
+  // Read business and status history from the store so SSE patches are reflected immediately
   const business = useBusinessStore((s) => s.activeBusiness);
-
-  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+  const statusHistory = useBusinessStore((s) => s.activeStatusHistory);
   const [riskHistory, setRiskHistory] = useState<RiskCalculation[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export default function BusinessDetailPage() {
       ]);
 
       setActiveBusiness(businessData);
-      setStatusHistory(statusData);
+      setActiveStatusHistory(statusData);
       setRiskHistory(riskData);
       setDocuments(docsData);
     } catch (error) {
@@ -107,7 +108,10 @@ export default function BusinessDetailPage() {
     fetchBusinessDetails();
     // Clear the store when leaving the detail page so stale data
     // doesn't linger if the user navigates to a different business.
-    return () => setActiveBusiness(null);
+    return () => {
+      setActiveBusiness(null);
+      setActiveStatusHistory([]);
+    };
   }, [businessId]);
 
   const handleStatusChange = async (status: BusinessStatus, reason?: string) => {

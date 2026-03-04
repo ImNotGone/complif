@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Business, BusinessStats } from '../types/api';
+import type { Business, BusinessStats, StatusHistory } from '../types/api';
 import { BusinessStatus } from '../types/api';
 
 interface PendingLocalChange {
@@ -10,6 +10,7 @@ interface PendingLocalChange {
 interface BusinessStoreState {
   businesses: Business[];
   activeBusiness: Business | null;
+  activeStatusHistory: StatusHistory[];
   stats: BusinessStats;
   // Stamped just before the current user fires a status change so the SSE
   // listener can recognise the echo of their own action and skip the toast.
@@ -17,9 +18,15 @@ interface BusinessStoreState {
 
   setBusinesses: (businesses: Business[]) => void;
   setActiveBusiness: (business: Business | null) => void;
+  setActiveStatusHistory: (history: StatusHistory[]) => void;
   setStats: (stats: BusinessStats) => void;
   setPendingLocalChange: (change: PendingLocalChange | null) => void;
-  applyStatusChange: (businessId: string, previousStatus: BusinessStatus, newStatus: BusinessStatus) => void;
+  applyStatusChange: (
+    businessId: string,
+    previousStatus: BusinessStatus,
+    newStatus: BusinessStatus,
+    historyEntry?: Omit<StatusHistory, 'id'> & { id?: string },
+  ) => void;
 }
 
 const STATUS_STAT_KEY: Record<BusinessStatus, keyof BusinessStats> = {
@@ -32,15 +39,17 @@ const STATUS_STAT_KEY: Record<BusinessStatus, keyof BusinessStats> = {
 export const useBusinessStore = create<BusinessStoreState>((set) => ({
   businesses: [],
   activeBusiness: null,
+  activeStatusHistory: [],
   stats: { pending: 0, inReview: 0, approved: 0, rejected: 0 },
   pendingLocalChange: null,
 
   setBusinesses: (businesses) => set({ businesses }),
   setActiveBusiness: (activeBusiness) => set({ activeBusiness }),
+  setActiveStatusHistory: (activeStatusHistory) => set({ activeStatusHistory }),
   setStats: (stats) => set({ stats }),
   setPendingLocalChange: (pendingLocalChange) => set({ pendingLocalChange }),
 
-  applyStatusChange: (businessId, previousStatus, newStatus) =>
+  applyStatusChange: (businessId, previousStatus, newStatus, historyEntry) =>
     set((state) => {
       const businesses = state.businesses.map((b) =>
         b.id === businessId ? { ...b, status: newStatus } : b,
@@ -51,6 +60,19 @@ export const useBusinessStore = create<BusinessStoreState>((set) => ({
           ? { ...state.activeBusiness, status: newStatus }
           : state.activeBusiness;
 
+      // Prepend a new entry to the status timeline if we're on that business's
+      // detail page and the SSE event carries enough data to build one.
+      const activeStatusHistory =
+        historyEntry && state.activeBusiness?.id === businessId
+          ? [
+              ...state.activeStatusHistory,
+              {
+                id: historyEntry.id ?? `sse-${Date.now()}`,
+                ...historyEntry,
+              } as StatusHistory,
+            ]
+          : state.activeStatusHistory;
+
       // Always update global stats regardless of whether the business is on
       // the current page — SSE events can arrive for any business.
       const stats = {
@@ -59,6 +81,6 @@ export const useBusinessStore = create<BusinessStoreState>((set) => ({
         [STATUS_STAT_KEY[newStatus]]: state.stats[STATUS_STAT_KEY[newStatus]] + 1,
       };
 
-      return { businesses, activeBusiness, stats };
+      return { businesses, activeBusiness, activeStatusHistory, stats };
     }),
 }));

@@ -31,13 +31,37 @@ export function BusinessEventsListener() {
       pendingLocalChange?.newStatus === event.newStatus;
 
     if (isOwnChange) {
-      applyStatusChange(event.businessId, event.previousStatus as BusinessStatus, event.newStatus as BusinessStatus);
+      applyStatusChange(
+        event.businessId,
+        event.previousStatus as BusinessStatus,
+        event.newStatus as BusinessStatus,
+        {
+          businessId: event.businessId,
+          changedById: event.changedBy,
+          status: event.newStatus as BusinessStatus,
+          reason: event.reason,
+          createdAt: event.timestamp,
+          changedBy: { email: event.changedBy, role: 'ADMIN' },
+        },
+      );
       setPendingLocalChange(null);
       return;
     }
 
     // Someone else changed this business — update the store and notify.
-    applyStatusChange(event.businessId, event.previousStatus as BusinessStatus, event.newStatus as BusinessStatus);
+    applyStatusChange(
+      event.businessId,
+      event.previousStatus as BusinessStatus,
+      event.newStatus as BusinessStatus,
+      {
+        businessId: event.businessId,
+        changedById: event.changedBy,
+        status: event.newStatus as BusinessStatus,
+        reason: event.reason,
+        createdAt: event.timestamp,
+        changedBy: { email: event.changedBy, role: 'ADMIN' },
+      },
+    );
 
     const isOnDetailPage = pathname === `/dashboard/businesses/${event.businessId}`;
     const isInList = businesses.some((b) => b.id === event.businessId);

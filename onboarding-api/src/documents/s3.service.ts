@@ -15,6 +15,7 @@ export class S3Service {
     this.bucketName = this.configService.get('AWS_S3_BUCKET_NAME') || 'onboarding-documents';
     
     const isLocal = this.configService.get('NODE_ENV') === 'development';
+    const endpointUrl = this.configService.get('AWS_ENDPOINT_URL');
 
     this.s3Client = new S3Client({
       region: this.configService.get('AWS_REGION') || 'us-east-1',
@@ -22,17 +23,17 @@ export class S3Service {
         accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID') || 'test',
         secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY') || 'test',
       },
-      // Configuración Clave para LocalStack:
-      ...(isLocal ? {
-        endpoint: 'http://localhost:4566', // Apunta a LocalStack
-        forcePathStyle: true,              // Usa http://host/bucket/key en vez de http://bucket.host/key
+      // Use explicit endpoint (Docker/LocalStack) or fall back to localhost for local dev
+      ...(endpointUrl || isLocal ? {
+        endpoint: endpointUrl || 'http://localhost:4566',
+        forcePathStyle: true, // Usa http://host/bucket/key en vez de http://bucket.host/key
       } : {}),
     });
 
     this.logger.log(`S3Service initialized in ${isLocal ? 'LOCAL' : 'CLOUD'} mode`);
     
-    // Auto-crear bucket en local si no existe (opcional, ayuda mucho en dev)
-    if (isLocal) {
+    // Auto-crear bucket si hay un endpoint override (LocalStack en dev o Docker)
+    if (isLocal || endpointUrl) {
       this.createBucketIfNotExists();
     }
   }
@@ -80,6 +81,16 @@ private async createBucketIfNotExists() {
       Key: s3Key,
     });
 
-    return await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+
+    // If a public URL override is set, replace the internal Docker hostname
+    // with the browser-accessible one (e.g. http://localstack:4566 -> http://localhost:4566)
+    const publicUrl = this.configService.get('AWS_S3_PUBLIC_URL');
+    if (publicUrl) {
+      const internalEndpoint = this.configService.get('AWS_ENDPOINT_URL');
+      return url.replace(internalEndpoint, publicUrl);
+    }
+
+    return url;
   }
 }

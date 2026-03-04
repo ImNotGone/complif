@@ -304,7 +304,6 @@ export class BusinessesService {
       },
     });
 
-    // Publish to Redis → fans out to all SSE-connected clients via every instance
     await this.eventsService.publish({
       type: 'business.status_changed',
       businessId: id,

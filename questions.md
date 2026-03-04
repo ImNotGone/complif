@@ -1,16 +1,45 @@
-1. la informacion solo debe ser accesible si los usuarios estan logueados?
-    - creo que se trata de informacion sensible asi q unicamente voy a permitir acceso a aquellos q tengan cuenta, sean viewer o admin
-    - al haber agregado una guard global, esto significa que para los endpoints publicos hay q anotarlos manualmente
+# Questions & Design Decisions
 
-2. tax id deberia ser @unique?
-    - puse el constraint de unique por taxid y country juntos
+## 1. ¿La información solo debe ser accesible para usuarios logueados?
 
-3. la task menciona un enpoint para calcular riesgo, me parece mas logico que el riesgo se calcule automaticamente en cada paso
-    - agregue el enpoint para hacer trigger de un calculo manual pero hice que el riesgo se calcule siempre q sea relevante
+Sí. Se trata de información sensible, por lo que el acceso está restringido a usuarios autenticados (tanto `VIEWER` como `ADMIN`).
 
-4. la task menciona un endpoint de logout, pero tambien menciona el uso de JWT tokens.
-    - para poder implementar logout tendria q invalidar el token
-    - para invalidarlo puedo usar un sistema de versionado
-    - el proposito de los token jwt es que son stateless, reduciendo el load en la bd
-    - puedo usar una estrategia con 2 tokens uno de auth y uno de refresh e invalidar unicamente el de refresh
+Al haber agregado una guard global de autenticación, los endpoints públicos deben anotarse manualmente para quedar excluidos.
 
+---
+
+## 2. ¿`taxId` debería ser `@unique`?
+
+Se optó por un constraint de unicidad compuesto sobre `taxId` + `country`, ya que el mismo número de identificación puede pertenecer a entidades de distintos países.
+
+---
+
+## 3. El enunciado menciona un endpoint para calcular riesgo manualmente
+
+Se decidió que el riesgo se calcule automáticamente en cada paso relevante del flujo, en lugar de requerir una llamada explícita. De todas formas, se expone el endpoint mencionado para permitir un recálculo manual si fuera necesario.
+
+---
+
+## 4. El enunciado menciona un endpoint de logout junto con el uso de JWT
+
+Implementar logout con JWT presenta una tensión de diseño: los tokens son stateless por naturaleza, lo que reduce la carga en la base de datos. Invalidarlos requiere algún mecanismo de estado del lado del servidor.
+
+Se adoptó una estrategia de doble token:
+
+- **Access token** de corta duración: se usa para autenticar requests y expira rápidamente.
+- **Refresh token** de larga duración: se almacena y puede invalidarse explícitamente al hacer logout.
+
+Esto permite un logout efectivo sin comprometer los beneficios de los JWT para el flujo normal de autenticación.
+
+---
+
+## 5. ¿Por qué SSE en lugar de WebSockets para las notificaciones en tiempo real?
+
+Las notificaciones del sistema son unidireccionales: el servidor informa al cliente sobre cambios de estado, pero el cliente nunca necesita enviar eventos al servidor por ese canal. En ese contexto, WebSockets introducen complejidad innecesaria.
+
+SSE es la herramienta correcta porque:
+
+- La comunicación es exclusivamente servidor -> cliente, que es exactamente el modelo que SSE implementa.
+- Funciona sobre HTTP estándar, sin handshake de upgrade ni protocolo adicional.
+- El navegador maneja la reconexión automáticamente ante caídas de conexión.
+- Es más liviano que WebSockets.

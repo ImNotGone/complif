@@ -1,0 +1,7 @@
+aws_region         = "us-east-1"
+environment        = "production"
+project_name       = "complif"
+vpc_cidr           = "10.0.0.0/16"
+db_password        = "your-super-secure-db-password"
+jwt_secret         = "your-jwt-access-token-secret"
+jwt_refresh_secret = "your-jwt-refresh-token-secret"

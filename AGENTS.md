@@ -13,6 +13,7 @@ Business Onboarding Portal - A full-stack application for managing company onboa
 ```
 ├── onboarding-api/      # Backend (NestJS)
 ├── onboarding-frontend/ # Frontend (Next.js)
+├── infrastructure/      # Terraform configuration
 └── questions.md         # Design decisions & assumptions
 ```
 
@@ -842,6 +843,13 @@ docker-compose up -d  # Start PostgreSQL container
 ### Understanding Database Schema
 - `onboarding-api/prisma/schema.prisma` - Source of truth
 - `onboarding-api/prisma/migrations/` - Migration history
+
+### Understanding Infrastructure
+- `infrastructure/vpc.tf` - Networking configuration
+- `infrastructure/rds.tf` - Database configuration
+- `infrastructure/s3.tf` - Storage configuration
+- `infrastructure/ecs.tf` - Container orchestration
+- `infrastructure/iam.tf` - Security roles and policies
 
 ### Understanding API Contracts
 - Visit `http://localhost:3000/api/docs` for Swagger docs (when backend running)

@@ -260,6 +260,24 @@ A complete Postman collection is available in `postman/collection.json`.
 | PATCH | /businesses/:id/status | Change status (admin) |
 | POST | /businesses/:id/documents/upload | Upload document |
 
+## Infrastructure
+
+The project includes a Terraform configuration for deploying to AWS. The infrastructure is defined in the `infrastructure/` directory and includes:
+
+- **VPC**: Networking with public and private subnets across multiple AZs.
+- **RDS**: Managed PostgreSQL 15 database in private subnets.
+- **S3**: Bucket for document storage with versioning and server-side encryption.
+- **ECS**: Fargate cluster for running the API and Frontend containers.
+- **ALB**: Application Load Balancer for routing traffic to the ECS services.
+- **IAM**: Roles and policies for task execution and S3 access.
+
+To deploy:
+
+1.  Install Terraform.
+2.  Navigate to `infrastructure/`.
+3.  Copy `terraform.tfvars.example` to `terraform.tfvars` and fill in the values.
+4.  Run `terraform init`, `terraform plan`, and `terraform apply`.
+
 ## Troubleshooting
 
 ### Container fails to start

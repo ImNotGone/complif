@@ -228,6 +228,12 @@ The backend uses Winston for structured JSON logging:
 
 Set `LOG_LEVEL=debug` for verbose logging.
 
+## Design Decisions
+
+See [`QUESTIONS.md`](./QUESTIONS.md) for the reasoning behind key architectural and implementation choices made during development.
+
+---
+
 ## API Documentation
 
 Once the API is running, visit http://localhost:3000/api/docs for the interactive Swagger documentation.

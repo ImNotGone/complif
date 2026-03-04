@@ -1,45 +1,45 @@
 # Questions & Design Decisions
 
-## 1. ¿La información solo debe ser accesible para usuarios logueados?
+## 1. Should information only be accessible to logged-in users?
 
-Sí. Se trata de información sensible, por lo que el acceso está restringido a usuarios autenticados (tanto `VIEWER` como `ADMIN`).
+Yes. This is sensitive information, so access is restricted to authenticated users only (both `VIEWER` and `ADMIN` roles).
 
-Al haber agregado una guard global de autenticación, los endpoints públicos deben anotarse manualmente para quedar excluidos.
-
----
-
-## 2. ¿`taxId` debería ser `@unique`?
-
-Se optó por un constraint de unicidad compuesto sobre `taxId` + `country`, ya que el mismo número de identificación puede pertenecer a entidades de distintos países.
+Since a global authentication guard was added, public endpoints must be manually annotated to opt out of it.
 
 ---
 
-## 3. El enunciado menciona un endpoint para calcular riesgo manualmente
+## 2. Should `taxId` be `@unique`?
 
-Se decidió que el riesgo se calcule automáticamente en cada paso relevante del flujo, en lugar de requerir una llamada explícita. De todas formas, se expone el endpoint mencionado para permitir un recálculo manual si fuera necesario.
-
----
-
-## 4. El enunciado menciona un endpoint de logout junto con el uso de JWT
-
-Implementar logout con JWT presenta una tensión de diseño: los tokens son stateless por naturaleza, lo que reduce la carga en la base de datos. Invalidarlos requiere algún mecanismo de estado del lado del servidor.
-
-Se adoptó una estrategia de doble token:
-
-- **Access token** de corta duración: se usa para autenticar requests y expira rápidamente.
-- **Refresh token** de larga duración: se almacena y puede invalidarse explícitamente al hacer logout.
-
-Esto permite un logout efectivo sin comprometer los beneficios de los JWT para el flujo normal de autenticación.
+A composite uniqueness constraint on `taxId` + `country` was used instead, since the same tax ID number can belong to different entities in different countries.
 
 ---
 
-## 5. ¿Por qué SSE en lugar de WebSockets para las notificaciones en tiempo real?
+## 3. The spec mentions an endpoint to manually trigger a risk calculation
 
-Las notificaciones del sistema son unidireccionales: el servidor informa al cliente sobre cambios de estado, pero el cliente nunca necesita enviar eventos al servidor por ese canal. En ese contexto, WebSockets introducen complejidad innecesaria.
+The decision was made to calculate risk automatically at every relevant step in the flow, rather than requiring an explicit API call. The endpoint described in the spec is still exposed to allow manual recalculation when needed.
 
-SSE es la herramienta correcta porque:
+---
 
-- La comunicación es exclusivamente servidor -> cliente, que es exactamente el modelo que SSE implementa.
-- Funciona sobre HTTP estándar, sin handshake de upgrade ni protocolo adicional.
-- El navegador maneja la reconexión automáticamente ante caídas de conexión.
-- Es más liviano que WebSockets.
+## 4. The spec mentions a logout endpoint alongside the use of JWT tokens
+
+Implementing logout with JWTs introduces a design tension: tokens are stateless by nature, which reduces database load. Invalidating them requires some server-side state.
+
+A dual-token strategy was adopted:
+
+- **Access token** (short-lived): used to authenticate requests, expires quickly.
+- **Refresh token** (long-lived): stored server-side and can be explicitly invalidated on logout.
+
+This enables effective logout without giving up the benefits of JWTs for the normal authentication flow.
+
+---
+
+## 5. Why SSE instead of WebSockets for real-time notifications?
+
+System notifications are unidirectional: the server informs the client about state changes, but the client never needs to send events back to the server over that channel. In that context, WebSockets introduce unnecessary complexity.
+
+SSE is the right tool here because:
+
+- Communication is exclusively server -> client.
+- It runs over standard HTTP, with no upgrade handshake or additional protocol.
+- The browser handles reconnection automatically if the connection drops.
+- It is lighter than WebSockets.
